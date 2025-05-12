@@ -33,10 +33,26 @@ class AttendanceStatus(str, Enum):
     MAYBE = "maybe"
 
 class Attendance(BaseModel):
-    id: int
-    user_id: int
-    event_id: int
-    status: AttendanceStatus
-    reason: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime 
+    user_id: int = None
+    event_id: int = None
+    status: AttendanceStatus = -1
+    reason: Optional[str] = ""
+
+class Attendance(Attendance):
+    def clean_and_set_reason(self, reason: str):
+        clean_reason = self.remove_html_tags(text=reason)
+        self.reason = clean_reason
+        return
+
+    @staticmethod
+    def remove_html_tags(text: str) -> str:
+        html_tags = {
+            "&": "&amp",
+            '"': "&quote",
+            "'": "&#39",
+            "<": "&lt",
+            ">": "&gt",
+        }
+        for tag in html_tags:
+            text = text.replace(tag, html_tags[tag])
+        return text

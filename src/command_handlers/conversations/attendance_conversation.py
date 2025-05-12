@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
@@ -8,9 +8,9 @@ from telegram.ext import (
     ContextTypes,
 )
 from datetime import datetime, date
-from models.models import AccessCategory, AttendanceStatus, Attendance
-from command_handlers.conversations.conversation_flow import ConversationFlow
-from providers.attendance_provider import AttendanceProvider
+from src.models.models import AccessCategory, AttendanceStatus, Attendance, Event
+from src.command_handlers.conversations.conversation_flow import ConversationFlow
+from src.providers.attendance_provider import AttendanceProvider
 import logging
 
 logger = logging.getLogger(__name__)
@@ -94,17 +94,21 @@ class MarkAttendanceConversation(ConversationFlow):
         
         event_id = int(query.data)
         event = await self.provider.get_event(event_id)
+        attendance = Attendance()
         
         if not event:
             await query.edit_message_text("Event not found.")
             return ConversationHandler.END
+
+        context.user_data["selected_event"] = event
+        context.user_data["attendance"] = attendance
         
         keyboard = [
             [
-                InlineKeyboardButton("Attending", callback_data=f"attending_{event_id}"),
-                InlineKeyboardButton("Not Attending", callback_data=f"not_attending_{event_id}"),
+                InlineKeyboardButton("Yes I'll be there!", callback_data=f"1"),
+                InlineKeyboardButton("No (lame)", callback_data=f"0"),
             ],
-            [InlineKeyboardButton("Maybe", callback_data=f"maybe_{event_id}")],
+            [InlineKeyboardButton("Yes, but... (will prompt for comment)", callback_data=f"2")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -114,54 +118,64 @@ class MarkAttendanceConversation(ConversationFlow):
         )
         
         return INDICATING_ATTENDANCE
+
+    async def give_reason(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Prompt user to give reason/comment"""
+
+        query = update.callback_query
+        await query.answer()
+        context.user_data["is_query_handled"] = True # needed for next handler to check if query has already been handled
+
+        attendance_indicated = int(query.data)
+
+        attendance: Attendance = context.user_data["attendance"]
+        attendance.status = attendance_indicated
+
+        context.user_data["attendance"] = attendance
+
+        await query.edit_message_text(
+            text="Please write a comment/reason 😏"
+        )
+
+        return INDICATING_ATTENDANCE
+
     
     async def attendance_selected(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle attendance selection"""
-        query = update.callback_query
-        await query.answer()
-        
-        status, event_id = query.data.split("_")
-        event_id = int(event_id)
-        
-        user = update.effective_user
-        db_user = await self.provider.get_user(user.id)
-        
-        attendance = await self.provider.get_attendance(event_id, db_user.id)
-        if not attendance:
-            # Create new attendance
-            attendance = await self.provider.update_attendance(
-                Attendance(
-                    id=0,  # Will be set by the service
-                    user_id=db_user.id,
-                    event_id=event_id,
-                    status=AttendanceStatus(status),
-                    reason="",
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
-            )
-        
-        await query.edit_message_text(
-            f"Please provide a reason for your attendance status:"
+
+        attendance: Attendance = context.user_data["attendance"]
+        is_query_handled: bool = context.user_data["is_query_handled"]
+        event: Event = context.user_data["selected_event"]
+
+        text = "updating your attendance"
+        if is_query_handled:
+            # handle update message text
+
+            reason = update.message.text
+            attendance.clean_and_set_reason(reason)
+            bot_message: Message = await update.message.reply_text(text)
+        else:
+            # from indicating yes
+            query = update.callback_query
+            await query.answer()
+
+            attendance.status = int(query.data)
+            bot_message: Message = await query.edit_message_text(text)
+
+        # TODO add a job queue to update attendance
+        self.provider.update_attendance(attendance)
+
+        # TODO add a job queue to update kaypoh messages
+
+        # TODO proper message to show updated attendance
+        await bot_message.edit_text(
+            text="you have updated your attendance"
         )
-        
-        context.user_data["attendance"] = attendance
-        return INDICATING_ATTENDANCE
-    
-    async def reason_provided(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle reason provided for attendance"""
-        attendance = context.user_data["attendance"]
-        attendance.reason = update.message.text
-        attendance.updated_at = datetime.now()
-        
-        await self.provider.update_attendance(attendance)
-        
-        await update.message.reply_text(
-            "Thank you for updating your attendance!"
-        )
-        
+
+        # TODO resend announcement to user if previously indicated as absent
+
         return ConversationHandler.END
-    
+
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle the /cancel command"""
         await update.message.reply_text("Operation cancelled.")
