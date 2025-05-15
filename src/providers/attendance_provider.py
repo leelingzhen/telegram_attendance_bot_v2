@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from typing import List, Optional
-from models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
+from src.models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
 
 class AttendanceProvider(ABC):
     """

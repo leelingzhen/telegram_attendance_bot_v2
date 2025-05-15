@@ -11,21 +11,19 @@ class AccessCategory(str, Enum):
 
 class User(BaseModel):
     id: int
-    telegram_id: int
+    telegram_user: str
     name: str
     username: Optional[str] = None
     access_category: AccessCategory = AccessCategory.PUBLIC
-    created_at: datetime
-    updated_at: datetime
+    gender: str
 
 class Event(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
-    date: datetime
+    start: datetime
+    end: datetime
     access_category: AccessCategory
-    created_at: datetime
-    updated_at: datetime
 
 class AttendanceStatus(str, Enum):
     ATTENDING = "attending"

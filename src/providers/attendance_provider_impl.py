@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
-from models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
-from providers.attendance_provider import AttendanceProvider
+from src.models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
+from src.providers.attendance_provider import AttendanceProvider
 
 class AttendanceProviderImpl(AttendanceProvider):
     """
@@ -23,12 +23,11 @@ class AttendanceProviderImpl(AttendanceProvider):
         # Create mock users
         self.users[1] = User(
             id=1,
-            telegram_id=123456789,
+            telegram_user="@123456789",
             name="Test User",
             username="testuser",
             access_category=AccessCategory.MEMBER,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            gender="male"
         )
         
         # Create mock events
@@ -36,10 +35,9 @@ class AttendanceProviderImpl(AttendanceProvider):
             id=1,
             title="Training Session",
             description="Regular training session",
-            date=datetime.now() + timedelta(days=1),
+            start=datetime.now() + timedelta(days=1),
+            end=datetime.now() + timedelta(days=1),
             access_category=AccessCategory.MEMBER,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
         )
         
         # Create mock attendance

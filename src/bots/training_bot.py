@@ -5,11 +5,11 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from bots.bot_core import BotCore
-from command_handlers.start_handler import StartHandler
-from command_handlers.cancel_handler import CancelHandler
-from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
-from providers.attendance_provider_impl import AttendanceProviderImpl
+from src.bots.bot_core import BotCore
+from src.command_handlers.start_handler import StartHandler
+from src.command_handlers.cancel_handler import CancelHandler
+from src.command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
+from src.providers.attendance_provider_impl import AttendanceProviderImpl
 import logging
 
 logger = logging.getLogger(__name__)

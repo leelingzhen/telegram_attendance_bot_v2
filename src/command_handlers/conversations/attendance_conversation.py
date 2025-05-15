@@ -48,7 +48,7 @@ class MarkAttendanceConversation(ConversationFlow):
                 ],
                 INDICATING_ATTENDANCE: [
                     CallbackQueryHandler(self.attendance_selected),
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.reason_provided),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.attendance_selected),
                 ],
             },
             fallbacks=[CommandHandler("cancel", self.cancel)],

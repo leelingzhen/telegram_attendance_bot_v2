@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from telegram.ext import ConversationHandler
-from services.base import BaseService
 
 class ConversationFlow(ABC):
     """
@@ -9,13 +8,9 @@ class ConversationFlow(ABC):
     This class defines the interface that all conversation handlers must implement.
     Each conversation flow represents a specific interaction sequence with the user,
     such as attendance marking, event creation, or user registration.
-    
-    Attributes:
-        service (BaseService): The service instance used for data operations
+
     """
-    
-    def __init__(self, service: BaseService):
-        self.service = service
+
     
     @property
     @abstractmethod

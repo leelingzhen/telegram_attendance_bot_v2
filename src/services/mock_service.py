@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
-from services.base import BaseService
-from models.models import User, Event, Attendance, AccessCategory, AttendanceStatus
+from src.services.base import BaseService
+from src.models.models import User, Event, Attendance, AccessCategory, AttendanceStatus
 
 class MockService(BaseService):
     """
@@ -22,12 +22,11 @@ class MockService(BaseService):
         # Create some mock users
         self.users[1] = User(
             id=1,
-            telegram_id=123456789,
+            telegram_user="@123456789",
             name="Test User",
             username="testuser",
             access_category=AccessCategory.MEMBER,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            gender="male"
         )
         
         # Create some mock events
@@ -35,10 +34,9 @@ class MockService(BaseService):
             id=1,
             title="Training Session",
             description="Regular training session",
-            date=datetime.now() + timedelta(days=1),
+            start=datetime.now() + timedelta(days=1),
+            end=datetime.now() + timedelta(days=2),
             access_category=AccessCategory.MEMBER,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
         )
     
     def add_user(self, user: User) -> None:
