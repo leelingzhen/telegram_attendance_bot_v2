@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
-from src.services.base import BaseService
-from src.models.models import User, Event, Attendance, AccessCategory, AttendanceStatus
+from services.base import BaseService
+from models.models import User, Event, Attendance, AccessCategory, AttendanceStatus
 
 class MockService(BaseService):
     """

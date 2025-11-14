@@ -8,9 +8,9 @@ from telegram.ext import (
     ContextTypes,
 )
 from datetime import datetime, date
-from src.models.models import AccessCategory, AttendanceStatus, Attendance, Event
-from src.command_handlers.conversations.conversation_flow import ConversationFlow
-from src.providers.attendance_provider import AttendanceProvider
+from models.models import AccessCategory, AttendanceStatus, Attendance, Event
+from command_handlers.conversations.conversation_flow import ConversationFlow
+from providers.attendance_provider import AttendanceProvider
 import logging
 
 logger = logging.getLogger(__name__)

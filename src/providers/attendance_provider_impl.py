@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
-from src.models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
-from src.providers.attendance_provider import AttendanceProvider
+from models.models import User, Event, Attendance, AttendanceStatus, AccessCategory
+from providers.attendance_provider import AttendanceProvider
 
 class AttendanceProviderImpl(AttendanceProvider):
     """

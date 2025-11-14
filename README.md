@@ -6,8 +6,9 @@ A Telegram bot for managing attendance at events and training sessions.
 
 See `src/README.md` for detailed information about the project structure and architecture.
 
-## Setup
+## Development
 
+### Local Development
 1. Create a virtual environment:
 ```bash
 python -m venv venv
@@ -16,7 +17,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 2. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -e "src/.[dev]"
 ```
 
 3. Create a `.env` file in the root directory with the following variables:
@@ -37,7 +38,13 @@ LOG_LEVEL=INFO
 
 4. Run the bot:
 ```bash
+# 1. running the file directly from root directory
 python src/main.py
+# or 
+python -m src.main
+
+# 2. run the the package installer at step 2 and you can use the command line 
+attendance-bot
 ```
 
 ## Environment Variables
