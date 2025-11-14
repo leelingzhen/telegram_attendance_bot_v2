@@ -1,28 +1,22 @@
 version: '3.8'
 
 services:
-  # 1. Development Service (app-dev)
-  app-dev:
+  dev:
     # Use the specific development Dockerfile
+    container_name: attendance_bot_dev
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    container_name: attendance_bot_dev
-
-    # Mount your local src code into the container
-    # Changes you make on your host machine instantly sync inside the container
+      dockerfile: ./docker/dev.Dockerfile
     volumes:
-      - ./src:/app/src
-
-
-    # Override the CMD to allow interactive use
-    # (CMD in Dockerfile.dev is just to keep it running)
+      - .:/app
     command: tail -f /dev/null
+    env_file:
+      - ./.env
 
   attendance-bot:
     container_name: attendance_bot
     build:
       context: .
-      dockerfile: build.Dockerfile
+      dockerfile: ./docker/build.Dockerfile
     env_file:
       - ./.env

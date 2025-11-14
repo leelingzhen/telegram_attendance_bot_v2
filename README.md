@@ -8,7 +8,24 @@ See `src/README.md` for detailed information about the project structure and arc
 
 ## Development
 
-### Local Development
+### Using Local
+volumes have been mounted to the image as well
+```shell
+# in root directory
+docker compose build dev
+docker compose up -d dev
+```
+Enter the interactive shell environment:
+```shell
+docker compose exec dev sh
+```
+
+or directly run main module (to add tests command)
+```shell
+docker compose exec dev python -m src.main
+```
+
+### Running Locally directly
 1. Create a virtual environment:
 ```bash
 python -m venv venv
