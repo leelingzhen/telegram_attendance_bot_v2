@@ -62,14 +62,25 @@ attendance-bot
 ### Optional
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
-## Development
+## Building and testing 
+This section outlines the steps for building and deploying the telegram-attendance-bot application using Docker. This approach ensures consistency between development and production environments by isolating all dependencies.
 
-1. Install development dependencies:
-```bash
-pip install -r requirements-dev.txt
+
+### 1. 🐳 Build the Production Container
+The attendance-bot service is defined in docker-compose.yml to use Dockerfile.build. This command executes the multi-stage process and creates the final optimized Docker image.
+
+Run this command from your project root directory:
+```shell
+docker compose build attendance-bot
+```
+### 2. Run and deploy the application
+To run the application, we use docker compose up. This command not only starts the container but also handles setting the necessary environment variables from your local .env file.
+
+```shell
+docker compose up attendance-bot
 ```
 
-2. Run tests:
+## Run tests TODO:
 ```bash
 pytest
 ```
