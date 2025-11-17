@@ -1,6 +1,14 @@
-version: '3.8'
-
 services:
+
+  attendance-bot:
+    image: leelingzhen/telegram-attendance-management:latest
+    container_name: attendance_bot
+    build:
+      context: .
+      dockerfile: ./docker/build.Dockerfile
+    env_file:
+      - ./.env
+
   dev:
     # Use the specific development Dockerfile
     container_name: attendance_bot_dev
@@ -10,13 +18,5 @@ services:
     volumes:
       - .:/app
     command: tail -f /dev/null
-    env_file:
-      - ./.env
-
-  attendance-bot:
-    container_name: attendance_bot
-    build:
-      context: .
-      dockerfile: ./docker/build.Dockerfile
     env_file:
       - ./.env
