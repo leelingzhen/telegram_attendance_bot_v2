@@ -11,20 +11,21 @@ from dotenv import load_dotenv
 from bots.training_bot import TrainingBot
 import logging
 
-# Set up logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 def main():
     """Start the bot."""
     # Load environment variables
     load_dotenv()
-    
+
     # Get bot token from environment
     token = os.getenv("TELEGRAM_BOT_TOKEN")
+    log_level = os.getenv("LOG_LEVEL")
+
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
     logger.debug(f"Token value: {token}")
     
     if not token:
