@@ -33,7 +33,7 @@ class AttendanceStatus(str, Enum):
 class Attendance(BaseModel):
     user_id: int = None
     event_id: int = None
-    status: AttendanceStatus = -1
+    status: Optional[bool] = None
     reason: Optional[str] = ""
 
 class Attendance(Attendance):
@@ -54,3 +54,13 @@ class Attendance(Attendance):
         for tag in html_tags:
             text = text.replace(tag, html_tags[tag])
         return text
+
+class EventAttendance(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    start: datetime
+    end: datetime
+    location: str
+    isAccountable: bool
+    attendance: Attendance

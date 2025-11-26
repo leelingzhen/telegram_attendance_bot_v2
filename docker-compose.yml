@@ -20,3 +20,14 @@ services:
     command: tail -f /dev/null
     env_file:
       - ./.env
+
+  test:
+    # Use the specific development Dockerfile
+    container_name: attendance_bot_tests
+    build:
+      context: .
+      dockerfile: ./docker/unittest.Dockerfile
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env

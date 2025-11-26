@@ -25,6 +25,8 @@ dependencies = [
     "pydantic==2.12.4",
     "python-dotenv==1.2.1",
     "httpx~=0.28.1",
+    "rich>=13.7.0",
+    "pretty-errors>=1.2.25",
 ]
 
 [project.optional-dependencies]
