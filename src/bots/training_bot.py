@@ -1,15 +1,9 @@
-from telegram import Update
-from telegram.ext import (
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-)
 from bots.bot_core import BotCore
 from command_handlers.start_handler import StartHandler
 from command_handlers.cancel_handler import CancelHandler
 from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
-from providers.attendance_provider_impl import AttendanceProviderImpl
+from controllers.attendance_controller import AttendanceController, FakeAttendanceController
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -51,7 +45,7 @@ class TrainingBot:
         logger.info("Command handlers set up")
         
         # Add attendance conversation handler
-        attendance_conv = MarkAttendanceConversation(provider=AttendanceProviderImpl())
+        attendance_conv = MarkAttendanceConversation(controller=FakeAttendanceController())
         self.core.application.add_handler(attendance_conv.conversation_handler)
     
     def run(self):

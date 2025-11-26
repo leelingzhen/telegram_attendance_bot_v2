@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+from rich.logging import RichHandler
+
 # Add src directory to Python path
 src_dir = str(Path(__file__).parent)
 if src_dir not in sys.path:
@@ -22,7 +24,8 @@ def main():
 
     logging.basicConfig(
         level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[RichHandler(rich_tracebacks=True)],
     )
     logger = logging.getLogger(__name__)
 
