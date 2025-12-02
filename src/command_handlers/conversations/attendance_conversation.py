@@ -1,3 +1,5 @@
+from typing import List
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from telegram.ext import (
     CommandHandler,
@@ -8,9 +10,10 @@ from telegram.ext import (
     ContextTypes,
 )
 from datetime import datetime, date
-from models.models import AccessCategory, AttendanceStatus, Attendance, Event
+
+from controllers.attendance_controller import AttendanceControlling, AttendanceController
+from models.models import Attendance, Event, EventAttendance
 from command_handlers.conversations.conversation_flow import ConversationFlow
-from providers.attendance_provider import AttendanceProvider
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,12 +35,13 @@ class MarkAttendanceConversation(ConversationFlow):
     viewing or managing other users' attendance.
     """
     
-    def __init__(self, provider: AttendanceProvider):
-        self.provider = provider
+    def __init__(self, controller: AttendanceControlling):
+        self.controller = controller
     
     @property
     def conversation_handler(self) -> ConversationHandler:
         """The conversation handler for marking attendance flow"""
+
         return ConversationHandler(
             entry_points=[
                 CommandHandler("attendance", self.attendance_command),
@@ -47,7 +51,7 @@ class MarkAttendanceConversation(ConversationFlow):
                     CallbackQueryHandler(self.event_selected),
                 ],
                 INDICATING_ATTENDANCE: [
-                    CallbackQueryHandler(self.attendance_selected),
+                    CallbackQueryHandler(self.give_reason),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.attendance_selected),
                 ],
             },
@@ -57,26 +61,22 @@ class MarkAttendanceConversation(ConversationFlow):
     async def attendance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle the /attendance command"""
         user = update.effective_user
-        db_user = await self.provider.get_user(user.id)
-        
-        if not db_user or db_user.access_category == AccessCategory.PUBLIC:
-            await update.message.reply_text(
-                "You need to be registered to use this command. Please contact an admin."
-            )
-            return ConversationHandler.END
-        
-        events = await self.provider.get_events(
+
+        upcoming_events = await self.controller.retrieve_upcoming_events(
+            user_id=user.id,
             from_date=date.today(),
-            access_category=db_user.access_category
         )
-        
-        if not events:
+
+        context.user_data["upcoming_events"] = upcoming_events
+
+        if not upcoming_events:
             await update.message.reply_text("No upcoming events found.")
             return ConversationHandler.END
         
         keyboard = [
-            [InlineKeyboardButton(event.title, callback_data=str(event.id))]
-            for event in events
+            [InlineKeyboardButton(event.start.strftime('%-d-%b-%-y, %a @ %-I:%M%p'), callback_data=str(event.id))]
+            for event in upcoming_events
+
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -91,18 +91,13 @@ class MarkAttendanceConversation(ConversationFlow):
         """Handle event selection"""
         query = update.callback_query
         await query.answer()
-        
         event_id = int(query.data)
-        event = await self.provider.get_event(event_id)
-        attendance = Attendance()
-        
-        if not event:
-            await query.edit_message_text("Event not found.")
-            return ConversationHandler.END
+        upcoming_events: List[EventAttendance] = context.user_data["upcoming_events"]
 
-        context.user_data["selected_event"] = event
-        context.user_data["attendance"] = attendance
-        
+        selected_event = next(event for event in upcoming_events if event.id == event_id)
+
+        context.user_data["selected_event"] = selected_event
+
         keyboard = [
             [
                 InlineKeyboardButton("Yes I'll be there!", callback_data=f"1"),
@@ -113,7 +108,7 @@ class MarkAttendanceConversation(ConversationFlow):
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
-            f"Please indicate your attendance for {event.title}:",
+            f"Please indicate your attendance for {selected_event.title}:",
             reply_markup=reply_markup
         )
         
@@ -124,15 +119,20 @@ class MarkAttendanceConversation(ConversationFlow):
 
         query = update.callback_query
         await query.answer()
-        context.user_data["is_query_handled"] = True # needed for next handler to check if query has already been handled
+        context.user_data["is_event_selected_query_handled"] = False
 
+        selected_event: EventAttendance = context.user_data["selected_event"]
         attendance_indicated = int(query.data)
 
-        attendance: Attendance = context.user_data["attendance"]
-        attendance.status = attendance_indicated
+        selected_event.attendance.status = bool(attendance_indicated)
+        context.user_data["selected_event"] = selected_event
 
-        context.user_data["attendance"] = attendance
+        if attendance_indicated == 1:
+            return await self.attendance_selected(update, context)
+        elif attendance_indicated != 2 and not selected_event.isAccountable:
+            return await self.attendance_selected(update, context)
 
+        context.user_data["is_event_selected_query_handled"] = True
         await query.edit_message_text(
             text="Please write a comment/reason 😏"
         )
@@ -143,35 +143,27 @@ class MarkAttendanceConversation(ConversationFlow):
     async def attendance_selected(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle attendance selection"""
 
-        attendance: Attendance = context.user_data["attendance"]
-        is_query_handled: bool = context.user_data["is_query_handled"]
-        event: Event = context.user_data["selected_event"]
+        selected_event: EventAttendance = context.user_data["selected_event"]
+        is_event_selected_query_handled: bool = context.user_data["is_event_selected_query_handled"]
 
         text = "updating your attendance"
-        if is_query_handled:
-            # handle update message text
-
+        if is_event_selected_query_handled:
             reason = update.message.text
-            attendance.clean_and_set_reason(reason)
+            selected_event.attendance.clean_and_set_reason(reason)
+
             bot_message: Message = await update.message.reply_text(text)
         else:
-            # from indicating yes
             query = update.callback_query
             await query.answer()
 
-            attendance.status = int(query.data)
+            selected_event.attendance.status = bool(int(query.data))
             bot_message: Message = await query.edit_message_text(text)
 
-        # TODO add a job queue to update attendance
-        self.provider.update_attendance(attendance)
+        await self.controller.update_attendance(events=[selected_event])
 
-        # TODO add a job queue to update kaypoh messages
-
-        # TODO proper message to show updated attendance
         await bot_message.edit_text(
             text="you have updated your attendance"
         )
-
         # TODO resend announcement to user if previously indicated as absent
 
         return ConversationHandler.END
@@ -179,4 +171,4 @@ class MarkAttendanceConversation(ConversationFlow):
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle the /cancel command"""
         await update.message.reply_text("Operation cancelled.")
-        return ConversationHandler.END 
+        return ConversationHandler.END
