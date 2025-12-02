@@ -124,7 +124,7 @@ class MarkAttendanceConversation(ConversationFlow):
         selected_event: EventAttendance = context.user_data["selected_event"]
         attendance_indicated = int(query.data)
 
-        selected_event.attendance.status = attendance_indicated
+        selected_event.attendance.status = bool(attendance_indicated)
         context.user_data["selected_event"] = selected_event
 
         if attendance_indicated == 1:
@@ -156,7 +156,7 @@ class MarkAttendanceConversation(ConversationFlow):
             query = update.callback_query
             await query.answer()
 
-            selected_event.attendance.status = bool(query.data)
+            selected_event.attendance.status = bool(int(query.data))
             bot_message: Message = await query.edit_message_text(text)
 
         await self.controller.update_attendance(events=[selected_event])
