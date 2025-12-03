@@ -28,7 +28,7 @@ class TestGetTeamAttendanceConversation:
         self.controller = controller
         self.conversation = GetTeamAttendanceConversation(controller=controller)
 
-    @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_upcoming_events_handles_empty_results(self):
         user_id = 42
         update = MagicMock(spec=Update)
@@ -47,7 +47,7 @@ class TestGetTeamAttendanceConversation:
         update.message.reply_text.assert_awaited_once_with("No upcoming events found.")
         assert result == ConversationHandler.END
 
-    @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_upcoming_events_prompts_selection(self):
         user_id = 7
         event = Event(
@@ -79,7 +79,7 @@ class TestGetTeamAttendanceConversation:
         assert isinstance(kwargs["reply_markup"], InlineKeyboardMarkup)
         assert kwargs["reply_markup"].inline_keyboard[0][0].callback_data == str(event.id)
 
-    @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_return_team_attendance_handles_missing_event(self):
         context = MagicMock(spec=CallbackContext)
         context.user_data = {}
@@ -100,7 +100,7 @@ class TestGetTeamAttendanceConversation:
         )
         assert result == ConversationHandler.END
 
-    @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_return_team_attendance_formats_full_message(self, monkeypatch):
         controller = FakeTeamAttendanceController()
         conversation = GetTeamAttendanceConversation(controller=controller)
