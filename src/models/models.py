@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from enum import Enum
 
 class AccessCategory(str, Enum):
@@ -24,11 +24,6 @@ class Event(BaseModel):
     start: datetime
     end: datetime
     access_category: AccessCategory
-
-class AttendanceStatus(str, Enum):
-    ATTENDING = "attending"
-    NOT_ATTENDING = "not_attending"
-    MAYBE = "maybe"
 
 class Attendance(BaseModel):
     user_id: int = None
