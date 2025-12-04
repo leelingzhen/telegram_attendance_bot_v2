@@ -1,6 +1,8 @@
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, ConversationHandler
 
+from localization import Key
+
 class BasicCommandHandlers:
     """Base class for basic command handlers that can be used across different bots."""
     
@@ -24,7 +26,7 @@ class BasicCommandHandlers:
             update: The update object
             context: The context object
         """
-        await update.message.reply_text("Hello please use the commands to talk to me")
+        await update.message.reply_text(Key.start_greeting)
     
     @staticmethod
     async def _cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -37,5 +39,5 @@ class BasicCommandHandlers:
         Returns:
             int: ConversationHandler.END to end any active conversation
         """
-        await update.message.reply_text("process cancelled, see you next time!")
-        return ConversationHandler.END 
+        await update.message.reply_text(Key.cancel_basic)
+        return ConversationHandler.END
