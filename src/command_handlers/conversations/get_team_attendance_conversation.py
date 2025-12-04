@@ -116,17 +116,18 @@ class GetTeamAttendanceConversation(ConversationFlow):
         if include_reason and user.attendance.reason:
             reason_text = f" ({user.attendance.reason})"
 
+
         if user.access == AccessCategory.GUEST:
             return Key.team_attendance_user_guest.format(
                 name=user.name,
-                handle=user.telegram_user,
+                handle=user.telegram_handle,
                 reason=reason_text,
             )
 
         if unindicated:
             return Key.team_attendance_user_unindicated.format(
                 name=user.name,
-                handle=user.telegram_user,
+                handle=user.telegram_handle,
             )
 
         return Key.team_attendance_user.format(name=user.name, reason=reason_text)

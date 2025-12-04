@@ -10,10 +10,17 @@ class AttendanceResponse(BaseModel):
 
 class UserAttendance(BaseModel):
     name: str
-    telegram_user: str
+    telegram_user: Optional[str]
     gender: str
     access: AccessCategory
     attendance: AttendanceResponse
+
+    @property
+    def telegram_handle(self) -> str:
+        if self.telegram_user:
+            clean = self.telegram_user.lstrip("@")
+            return f"@{clean}"
+        return "(not yet set on telegram)"
 
 class UserAttendanceResponse(BaseModel):
     male: List[UserAttendance]

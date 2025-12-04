@@ -3,7 +3,9 @@ from command_handlers.conversations.get_team_attendance_conversation import GetT
 from command_handlers.start_handler import StartHandler
 from command_handlers.cancel_handler import CancelHandler
 from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
-from controllers.attendance_controller import AttendanceController, FakeAttendanceController
+from command_handlers.conversations.registration_conversation import RegistrationConversation
+from controllers.attendance_controller import FakeAttendanceController
+from controllers.registration_controller import FakeRegistrationController
 
 import logging
 
@@ -50,9 +52,11 @@ class TrainingBot:
         # Add attendance conversation handler
         attendance_conv = MarkAttendanceConversation(controller=FakeAttendanceController())
         team_attendance_conversation = GetTeamAttendanceConversation(controller=FakeTeamAttendanceController())
+        registration_conversation = RegistrationConversation(controller=FakeRegistrationController())
 
         self.core.application.add_handler(attendance_conv.conversation_handler)
         self.core.application.add_handler(team_attendance_conversation.conversation_handler)
+        self.core.application.add_handler(registration_conversation.conversation_handler)
 
     def run(self):
         """Run the bot"""
