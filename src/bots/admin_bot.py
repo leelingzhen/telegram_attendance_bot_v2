@@ -10,6 +10,7 @@ from telegram.ext import (
 from datetime import datetime
 from bots.base_bot import BaseBot
 from models.models import AccessCategory, Event, User
+from localization import Key
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,19 +54,17 @@ class AdminBot(BaseBot):
         db_user = await self.service.get_user(user.id)
         
         if not db_user or db_user.access_category != AccessCategory.ADMIN:
-            await update.message.reply_text(
-                "You do not have permission to use admin commands."
-            )
+            await update.message.reply_text(Key.admin_permission_denied)
             return ConversationHandler.END
-        
+
         keyboard = [
-            [InlineKeyboardButton("Create Event", callback_data="create_event")],
-            [InlineKeyboardButton("Manage Users", callback_data="manage_users")],
+            [InlineKeyboardButton(Key.admin_create_event_button, callback_data="create_event")],
+            [InlineKeyboardButton(Key.admin_manage_users_button, callback_data="manage_users")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
         await update.message.reply_text(
-            "Please select an action:",
+            Key.admin_choose_action,
             reply_markup=reply_markup
         )
         
@@ -76,13 +75,7 @@ class AdminBot(BaseBot):
         query = update.callback_query
         await query.answer()
         
-        await query.edit_message_text(
-            "Please provide event details in the following format:\n"
-            "Title\n"
-            "Description\n"
-            "Date (YYYY-MM-DD HH:MM)\n"
-            "Access Category (public/guest/member)"
-        )
+        await query.edit_message_text(Key.admin_create_event_prompt)
         
         return CREATING_EVENT
     
@@ -102,18 +95,18 @@ class AdminBot(BaseBot):
             )
             
             await update.message.reply_text(
-                f"Event created successfully!\n"
-                f"Title: {event.title}\n"
-                f"Date: {event.date}\n"
-                f"Access: {event.access_category}"
+                Key.admin_event_created.format(
+                    title=event.title,
+                    date=event.date,
+                    access=event.access_category,
+                )
             )
-            
+
             return ConversationHandler.END
-            
+
         except Exception as e:
             await update.message.reply_text(
-                f"Error creating event: {str(e)}\n"
-                "Please try again with the correct format."
+                Key.admin_event_creation_error.format(error=str(e))
             )
             return CREATING_EVENT
     
@@ -137,7 +130,7 @@ class AdminBot(BaseBot):
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
-            "Select a user to manage:",
+            Key.admin_select_user,
             reply_markup=reply_markup
         )
         
@@ -153,16 +146,16 @@ class AdminBot(BaseBot):
         
         keyboard = [
             [
-                InlineKeyboardButton("Promote", callback_data=f"promote_{user_id}"),
-                InlineKeyboardButton("Demote", callback_data=f"demote_{user_id}"),
+                InlineKeyboardButton(Key.admin_promote_button, callback_data=f"promote_{user_id}"),
+                InlineKeyboardButton(Key.admin_demote_button, callback_data=f"demote_{user_id}"),
             ],
-            [InlineKeyboardButton("Remove", callback_data=f"remove_{user_id}")],
+            [InlineKeyboardButton(Key.admin_remove_button, callback_data=f"remove_{user_id}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
         await query.edit_message_text(
-            f"Select action for {user.name}:",
+            Key.admin_select_action_for_user.format(user_name=user.name),
             reply_markup=reply_markup
         )
-        
-        return MANAGING_USERS 
+
+        return MANAGING_USERS

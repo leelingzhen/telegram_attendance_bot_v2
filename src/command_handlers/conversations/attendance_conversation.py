@@ -15,6 +15,7 @@ from controllers.attendance_controller import AttendanceControlling, AttendanceC
 from models.models import Attendance, Event, EventAttendance
 from command_handlers.conversations.conversation_flow import ConversationFlow
 import logging
+from localization import Key
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class MarkAttendanceConversation(ConversationFlow):
         context.user_data["upcoming_events"] = upcoming_events
 
         if not upcoming_events:
-            await update.message.reply_text("No upcoming events found.")
+            await update.message.reply_text(Key.no_upcoming_events_found)
             return ConversationHandler.END
         
         keyboard = [
@@ -81,7 +82,7 @@ class MarkAttendanceConversation(ConversationFlow):
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            "Please select an event:",
+            Key.choose_event_message,
             reply_markup=reply_markup
         )
         
@@ -100,15 +101,15 @@ class MarkAttendanceConversation(ConversationFlow):
 
         keyboard = [
             [
-                InlineKeyboardButton("Yes I'll be there!", callback_data=f"1"),
-                InlineKeyboardButton("No (lame)", callback_data=f"0"),
+                InlineKeyboardButton(Key.attendance_yes_button, callback_data=f"1"),
+                InlineKeyboardButton(Key.attendance_no_button, callback_data=f"0"),
             ],
-            [InlineKeyboardButton("Yes, but... (will prompt for comment)", callback_data=f"2")],
+            [InlineKeyboardButton(Key.attendance_comment_button, callback_data=f"2")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+
         await query.edit_message_text(
-            f"Please indicate your attendance for {selected_event.title}:",
+            Key.attendance_prompt.format(event_title=selected_event.title),
             reply_markup=reply_markup
         )
         
@@ -133,9 +134,7 @@ class MarkAttendanceConversation(ConversationFlow):
             return await self.attendance_selected(update, context)
 
         context.user_data["is_event_selected_query_handled"] = True
-        await query.edit_message_text(
-            text="Please write a comment/reason 😏"
-        )
+        await query.edit_message_text(text=Key.comment_prompt)
 
         return INDICATING_ATTENDANCE
 
@@ -146,7 +145,7 @@ class MarkAttendanceConversation(ConversationFlow):
         selected_event: EventAttendance = context.user_data["selected_event"]
         is_event_selected_query_handled: bool = context.user_data["is_event_selected_query_handled"]
 
-        text = "updating your attendance"
+        text = Key.updating_attendance
         if is_event_selected_query_handled:
             reason = update.message.text
             selected_event.attendance.clean_and_set_reason(reason)
@@ -161,14 +160,12 @@ class MarkAttendanceConversation(ConversationFlow):
 
         await self.controller.update_attendance(events=[selected_event])
 
-        await bot_message.edit_text(
-            text="you have updated your attendance"
-        )
+        await bot_message.edit_text(text=Key.attendance_updated)
         # TODO resend announcement to user if previously indicated as absent
 
         return ConversationHandler.END
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle the /cancel command"""
-        await update.message.reply_text("Operation cancelled.")
+        await update.message.reply_text(Key.operation_cancelled)
         return ConversationHandler.END

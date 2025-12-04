@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, ConversationHandler
+from localization import Key
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class CancelHandler:
         """
         try:
             logger.info(f"Cancel command received from user {update.effective_user.id}")
-            await update.message.reply_text("Operation cancelled. See you next time!")
+            await update.message.reply_text(Key.cancel_detailed)
             logger.info("Cancel command response sent")
             return ConversationHandler.END
         except Exception as e:

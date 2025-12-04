@@ -1,0 +1,56 @@
+{
+  "choose_event_message": "Please select an event:",
+  "no_upcoming_events_found": "No upcoming events found.",
+  "comment_prompt": "Please write a comment/reason 😏",
+  "attendance_prompt": "Please indicate your attendance for {event_title}:",
+  "attendance_yes_button": "Yes I'll be there!",
+  "attendance_no_button": "No (lame)",
+  "attendance_comment_button": "Yes, but... (will prompt for comment)",
+  "updating_attendance": "Updating your attendance...",
+  "attendance_updated": "You have updated your attendance.",
+  "operation_cancelled": "Operation cancelled.",
+  "start_greeting": "Hello please use the commands to talk to me",
+  "start_training_bot": "Hello! I am the training bot. Use /attendance to mark your attendance.",
+  "cancel_basic": "Process cancelled, see you next time!",
+  "cancel_detailed": "Operation cancelled. See you next time!",
+
+  "event_not_found_retry": "Event not found. Please try again.",
+
+  "team_attendance_header": "Attendance for {title} on {start}: {total}",
+  "team_attendance_attending_male": "Attending 👦🏻: {count}",
+  "team_attendance_attending_female": "Attending 👩🏻: {count}",
+  "team_attendance_absent": "Absent: {count}",
+  "team_attendance_unindicated": "Unindicated: {count}",
+  "team_attendance_last_updated": "last updated: {timestamp}",
+  "team_attendance_user_guest": "(guest) {name} - @{handle}{reason}",
+  "team_attendance_user": "{name}{reason}",
+  "team_attendance_user_unindicated": "{name} @{handle}",
+  "team_attendance_empty_section": "-",
+
+  "admin_permission_denied": "You do not have permission to use admin commands.",
+  "admin_choose_action": "Please select an action:",
+  "admin_create_event_button": "Create Event",
+  "admin_manage_users_button": "Manage Users",
+  "admin_create_event_prompt": [
+    "Please provide event details in the following format:",
+    "Title",
+    "Description",
+    "Date (YYYY-MM-DD HH:MM)",
+    "Access Category (public/guest/member)"
+  ],
+  "admin_event_created": [
+    "Event created successfully!",
+    "Title: {title}",
+    "Date: {date}",
+    "Access: {access}"
+  ],
+  "admin_event_creation_error": [
+    "Error creating event: {error}",
+    "Please try again with the correct format."
+  ],
+  "admin_select_user": "Select a user to manage:",
+  "admin_promote_button": "Promote",
+  "admin_demote_button": "Demote",
+  "admin_remove_button": "Remove",
+  "admin_select_action_for_user": "Select action for {user_name}:"
+}
