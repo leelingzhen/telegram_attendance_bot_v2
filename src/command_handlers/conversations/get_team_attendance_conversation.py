@@ -74,40 +74,42 @@ class GetTeamAttendanceConversation(ConversationFlow):
         return ConversationHandler.END
 
     def _build_attendance_message(self, event: Event, attendance: UserAttendanceResponse) -> str:
+        template = Key.team_attendance_message
         total_attending = len(attendance.male) + len(attendance.female)
-        lines = [
-            Key.team_attendance_header.format(
-                title=event.title,
-                start=self._format_event_datetime(event.start),
-                total=total_attending,
-            ),
-            "",
-            Key.team_attendance_attending_male.format(count=len(attendance.male)),
-            *self._format_user_block(attendance.male, section="attending"),
-            "",
-            Key.team_attendance_attending_female.format(count=len(attendance.female)),
-            *self._format_user_block(attendance.female, section="attending"),
-            "",
-            Key.team_attendance_absent.format(count=len(attendance.absent)),
-            *self._format_user_block(attendance.absent, section="absent"),
-            "",
-            Key.team_attendance_unindicated.format(count=len(attendance.unindicated)),
-            *self._format_unindicated_block(attendance.unindicated),
-            "",
-            Key.team_attendance_last_updated.format(timestamp=self._format_last_updated()),
-        ]
 
-        return "\n".join(lines)
+        male_block = self._render_user_block(attendance.male, include_reason=True)
+        female_block = self._render_user_block(attendance.female, include_reason=True)
+        absent_block = self._render_user_block(attendance.absent, include_reason=True)
+        unindicated_block = self._render_unindicated_block(attendance.unindicated)
 
-    def _format_user_block(self, users: List[UserAttendance], section: str) -> List[str]:
+        return template.format(
+            title=event.title,
+            start=self._format_event_datetime(event.start),
+            total=total_attending,
+            male_count=len(attendance.male),
+            male_block=male_block,
+            female_count=len(attendance.female),
+            female_block=female_block,
+            absent_count=len(attendance.absent),
+            absent_block=absent_block,
+            unindicated_count=len(attendance.unindicated),
+            unindicated_block=unindicated_block,
+            timestamp=self._format_last_updated(),
+        )
+
+    def _render_user_block(self, users: List[UserAttendance], include_reason: bool) -> str:
         if not users:
-            return [Key.team_attendance_empty_section]
-        return [self._format_user_line(user, include_reason=section != "unindicated") for user in users]
+            return Key.team_attendance_empty_section
+        return "\n".join(
+            self._format_user_line(user, include_reason=include_reason) for user in users
+        )
 
-    def _format_unindicated_block(self, users: List[UserAttendance]) -> List[str]:
+    def _render_unindicated_block(self, users: List[UserAttendance]) -> str:
         if not users:
-            return [Key.team_attendance_empty_section]
-        return [self._format_user_line(user, include_reason=False, unindicated=True) for user in users]
+            return Key.team_attendance_empty_section
+        return "\n".join(
+            self._format_user_line(user, include_reason=False, unindicated=True) for user in users
+        )
 
     def _format_user_line(self, user: UserAttendance, include_reason: bool = True, unindicated: bool = False) -> str:
         reason_text = ""
