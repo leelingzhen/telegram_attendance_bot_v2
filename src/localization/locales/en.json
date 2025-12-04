@@ -36,32 +36,5 @@
   "team_attendance_user_guest": "(guest) {name} - @{handle}{reason}",
   "team_attendance_user": "{name}{reason}",
   "team_attendance_user_unindicated": "{name} @{handle}",
-  "team_attendance_empty_section": "-",
-
-  "admin_permission_denied": "You do not have permission to use admin commands.",
-  "admin_choose_action": "Please select an action:",
-  "admin_create_event_button": "Create Event",
-  "admin_manage_users_button": "Manage Users",
-  "admin_create_event_prompt": [
-    "Please provide event details in the following format:",
-    "Title",
-    "Description",
-    "Date (YYYY-MM-DD HH:MM)",
-    "Access Category (public/guest/member)"
-  ],
-  "admin_event_created": [
-    "Event created successfully!",
-    "Title: {title}",
-    "Date: {date}",
-    "Access: {access}"
-  ],
-  "admin_event_creation_error": [
-    "Error creating event: {error}",
-    "Please try again with the correct format."
-  ],
-  "admin_select_user": "Select a user to manage:",
-  "admin_promote_button": "Promote",
-  "admin_demote_button": "Demote",
-  "admin_remove_button": "Remove",
-  "admin_select_action_for_user": "Select action for {user_name}:"
+  "team_attendance_empty_section": "-"
 }
