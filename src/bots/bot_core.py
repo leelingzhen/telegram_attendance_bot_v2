@@ -45,6 +45,7 @@ class BotCore:
             BotCommand("cancel", "[Public] cancel/clear any process"),
             BotCommand("attendance", "[Guest and above] update attendance"),
             BotCommand("kaypoh", "[Member] Your friend never go u dw go is it??"),
+            BotCommand("register", "[Public] register your details"),
         ]
 
         await application.bot.set_my_commands(commands=bot_commands)

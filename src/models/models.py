@@ -1,21 +1,28 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
-from enum import Enum
 
-class AccessCategory(str, Enum):
-    PUBLIC = "public"
-    GUEST = "guest"
-    MEMBER = "member"
-    ADMIN = "admin"
+from models.enums import AccessCategory, Gender
 
 class User(BaseModel):
     id: int
-    telegram_user: str
+    telegram_user: Optional[str] = None
     name: str
-    username: Optional[str] = None
     access_category: AccessCategory = AccessCategory.PUBLIC
-    gender: str
+    username: Optional[str] = None
+    gender: Optional[Gender] = None
+
+    @property
+    def telegram_handle(self) -> str:
+        """
+        Display-ready Telegram handle with leading @.
+
+        Returns a placeholder string when no handle is available.
+        """
+        if self.telegram_user:
+            clean = self.telegram_user.lstrip("@")
+            return f"@{clean}"
+        return "(not yet set on telegram)"
 
 class Event(BaseModel):
     id: int
