@@ -6,6 +6,7 @@
   "attendance_yes_button": "Yes I'll be there!",
   "attendance_no_button": "No (lame)",
   "attendance_comment_button": "Yes, but... (will prompt for comment)",
+  "attendance_locked": "This event has been locked; attendance can no longer be changed.",
   "updating_attendance": "Updating your attendance...",
   "attendance_updated": "You have updated your attendance.",
   "operation_cancelled": "Operation cancelled.",

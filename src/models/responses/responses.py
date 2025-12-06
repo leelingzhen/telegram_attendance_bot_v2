@@ -2,7 +2,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from models.models import Attendance, AccessCategory
+from models.enums import AccessCategory
+from models.models import Attendance, Event
 
 class AttendanceResponse(BaseModel):
     status: Optional[bool]
@@ -27,3 +28,8 @@ class UserAttendanceResponse(BaseModel):
     female: List[UserAttendance]
     absent: List[UserAttendance]
     unindicated: List[UserAttendance]
+
+
+class EventAttendance(BaseModel):
+    event: Event
+    attendance: Attendance

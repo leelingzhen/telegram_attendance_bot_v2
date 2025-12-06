@@ -11,22 +11,26 @@ from command_handlers.conversations.attendance_conversation import (
     MarkAttendanceConversation,
 )
 from controllers.attendance_controller import AttendanceControlling
-from models.models import Attendance, EventAttendance
+from models.enums import AccessCategory
+from models.models import Attendance, Event
+from models.responses.responses import EventAttendance
 
 
 def make_event_attendance(user_id: int, event_id: int = 1, is_accountable: bool = True) -> EventAttendance:
     """Build a minimal EventAttendance for tests."""
     now = datetime.now()
-    return EventAttendance(
+    event = Event(
         id=event_id,
         title="Test Event",
         description="",
         start=now,
         end=now + timedelta(hours=2),
-        location="HQ",
-        isAccountable=is_accountable,
-        attendance=Attendance(event_id=event_id, user_id=user_id),
+        is_event_locked=False,
+        is_accountable=is_accountable,
+        access_category=AccessCategory.PUBLIC,
     )
+
+    return EventAttendance(event=event, attendance=Attendance(event_id=event_id, user_id=user_id))
 
 
 @pytest.fixture
@@ -74,7 +78,7 @@ class TestMarkAttendanceConversation:
         assert start_state == CHOOSING_EVENT
 
         callback_event = MagicMock(spec=CallbackQuery)
-        callback_event.data = str(event.id)
+        callback_event.data = str(event.event.id)
         callback_event.answer = AsyncMock()
         callback_event.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_event = MagicMock(spec=Update)
@@ -83,7 +87,7 @@ class TestMarkAttendanceConversation:
         assert state_after_selection == INDICATING_ATTENDANCE
 
         callback_yes = MagicMock(spec=CallbackQuery)
-        callback_yes.data = 1
+        callback_yes.data = "1"
         callback_yes.answer = AsyncMock()
         callback_yes.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_yes = MagicMock(spec=Update)
@@ -131,7 +135,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.attendance_command(update_start, context)
 
         callback_event = MagicMock(spec=CallbackQuery)
-        callback_event.data = str(event.id)
+        callback_event.data = str(event.event.id)
         callback_event.answer = AsyncMock()
         callback_event.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_event = MagicMock(spec=Update)
@@ -139,7 +143,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.event_selected(update_event, context)
 
         callback_no = MagicMock(spec=CallbackQuery)
-        callback_no.data = 0
+        callback_no.data = "0"
         callback_no.answer = AsyncMock()
         callback_no.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_no = MagicMock(spec=Update)
@@ -175,7 +179,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.attendance_command(update_start, context)
 
         callback_event = MagicMock(spec=CallbackQuery)
-        callback_event.data = str(event.id)
+        callback_event.data = str(event.event.id)
         callback_event.answer = AsyncMock()
         callback_event.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_event = MagicMock(spec=Update)
@@ -183,7 +187,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.event_selected(update_event, context)
 
         callback_no = MagicMock(spec=CallbackQuery)
-        callback_no.data = 0
+        callback_no.data = "0"
         callback_no.answer = AsyncMock()
         callback_no.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_no = MagicMock(spec=Update)
@@ -208,7 +212,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.attendance_command(update_start, context)
 
         callback_event = MagicMock(spec=CallbackQuery)
-        callback_event.data = str(event.id)
+        callback_event.data = str(event.event.id)
         callback_event.answer = AsyncMock()
         callback_event.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_event = MagicMock(spec=Update)
@@ -216,7 +220,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.event_selected(update_event, context)
 
         callback_yes_but = MagicMock(spec=CallbackQuery)
-        callback_yes_but.data = 2
+        callback_yes_but.data = "2"
         callback_yes_but.answer = AsyncMock()
         callback_yes_but.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_yes_but = MagicMock(spec=Update)
@@ -240,7 +244,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.attendance_command(update_start, context)
 
         callback_event = MagicMock(spec=CallbackQuery)
-        callback_event.data = str(event.id)
+        callback_event.data = str(event.event.id)
         callback_event.answer = AsyncMock()
         callback_event.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_event = MagicMock(spec=Update)
@@ -248,7 +252,7 @@ class TestMarkAttendanceConversation:
         await self.conversation.event_selected(update_event, context)
 
         callback_yes_but = MagicMock(spec=CallbackQuery)
-        callback_yes_but.data = 2
+        callback_yes_but.data = "2"
         callback_yes_but.answer = AsyncMock()
         callback_yes_but.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
         update_yes_but = MagicMock(spec=Update)
