@@ -13,7 +13,7 @@ from command_handlers.conversations.attendance_conversation import (
 from controllers.attendance_controller import AttendanceControlling
 from models.enums import AccessCategory
 from models.models import Attendance, Event
-from models.responses import EventAttendance
+from models.responses.responses import EventAttendance
 
 
 def make_event_attendance(user_id: int, event_id: int = 1, is_accountable: bool = True) -> EventAttendance:
