@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from typing import List
 
-from models.models import Event, EventAttendance, Attendance
+from models.enums import AccessCategory
+from models.models import Attendance, Event
+from models.responses import EventAttendance
 
 
 class AttendanceControlling(ABC):
@@ -30,13 +32,16 @@ class FakeAttendanceController(AttendanceControlling):
     async def retrieve_upcoming_events(self, user_id: int, from_date: date) -> List[EventAttendance]:
         return [
             EventAttendance(
-                id=123,
-                title="test event",
-                description="test description",
-                start=datetime.now(),
-                end=datetime.now() + timedelta(hours=2),
-                location="test location",
-                isAccountable=True,
+                event=Event(
+                    id=123,
+                    title="test event",
+                    description="test description",
+                    start=datetime.now(),
+                    end=datetime.now() + timedelta(hours=2),
+                    is_event_locked=False,
+                    is_accountable=True,
+                    access_category=AccessCategory.PUBLIC,
+                ),
                 attendance=Attendance(
                     event_id=123,
                     user_id=user_id,

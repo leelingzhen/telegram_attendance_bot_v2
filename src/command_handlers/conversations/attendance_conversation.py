@@ -12,7 +12,8 @@ from telegram.ext import (
 from datetime import datetime, date
 
 from controllers.attendance_controller import AttendanceControlling, AttendanceController
-from models.models import Attendance, Event, EventAttendance
+from models.models import Attendance
+from models.responses import EventAttendance
 from command_handlers.conversations.conversation_flow import ConversationFlow
 import logging
 from localization import Key
@@ -75,7 +76,7 @@ class MarkAttendanceConversation(ConversationFlow):
             return ConversationHandler.END
         
         keyboard = [
-            [InlineKeyboardButton(event.start.strftime('%-d-%b-%-y, %a @ %-I:%M%p'), callback_data=str(event.id))]
+            [InlineKeyboardButton(event.event.start.strftime('%-d-%b-%-y, %a @ %-I:%M%p'), callback_data=str(event.event.id))]
             for event in upcoming_events
 
         ]
@@ -95,9 +96,13 @@ class MarkAttendanceConversation(ConversationFlow):
         event_id = int(query.data)
         upcoming_events: List[EventAttendance] = context.user_data["upcoming_events"]
 
-        selected_event = next(event for event in upcoming_events if event.id == event_id)
+        selected_event = next(event for event in upcoming_events if event.event.id == event_id)
 
         context.user_data["selected_event"] = selected_event
+
+        if selected_event.event.is_event_locked:
+            await query.edit_message_text(Key.attendance_locked)
+            return ConversationHandler.END
 
         keyboard = [
             [
@@ -109,7 +114,7 @@ class MarkAttendanceConversation(ConversationFlow):
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            Key.attendance_prompt.format(event_title=selected_event.title),
+            Key.attendance_prompt.format(event_title=selected_event.event.title),
             reply_markup=reply_markup
         )
         
@@ -130,7 +135,7 @@ class MarkAttendanceConversation(ConversationFlow):
 
         if attendance_indicated == 1:
             return await self.attendance_selected(update, context)
-        elif attendance_indicated != 2 and not selected_event.isAccountable:
+        elif attendance_indicated != 2 and not selected_event.event.is_accountable:
             return await self.attendance_selected(update, context)
 
         context.user_data["is_event_selected_query_handled"] = True

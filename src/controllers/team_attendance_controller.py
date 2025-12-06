@@ -32,6 +32,8 @@ class FakeTeamAttendanceController(TeamAttendanceControlling):
             description="Saturday training session",
             start=datetime(2025, 10, 11, 13, 30),
             end=datetime(2025, 10, 11, 15, 0),
+            is_event_locked=False,
+            is_accountable=True,
             access_category=AccessCategory.MEMBER,
         )
 

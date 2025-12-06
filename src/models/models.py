@@ -30,6 +30,8 @@ class Event(BaseModel):
     description: Optional[str] = None
     start: datetime
     end: datetime
+    is_event_locked: bool
+    is_accountable: bool
     access_category: AccessCategory
 
 class Attendance(BaseModel):
@@ -57,12 +59,3 @@ class Attendance(Attendance):
             text = text.replace(tag, html_tags[tag])
         return text
 
-class EventAttendance(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    start: datetime
-    end: datetime
-    location: str
-    isAccountable: bool
-    attendance: Attendance
