@@ -30,9 +30,19 @@ class Event(BaseModel):
     description: Optional[str] = None
     start: datetime
     end: datetime
-    is_event_locked: bool
+    attendance_deadline: Optional[datetime] = None  # when attendance changes close
     is_accountable: bool
     access_category: AccessCategory
+
+    def is_attendance_locked(self, now: Optional[datetime] = None) -> bool:
+        """
+        Return True when the attendance deadline has passed.
+        None deadlines mean the event stays open.
+        """
+        if self.attendance_deadline is None:
+            return False
+
+        return (now or datetime.now()) >= self.attendance_deadline
 
 class Attendance(BaseModel):
     user_id: int = None
@@ -58,4 +68,3 @@ class Attendance(Attendance):
         for tag in html_tags:
             text = text.replace(tag, html_tags[tag])
         return text
-

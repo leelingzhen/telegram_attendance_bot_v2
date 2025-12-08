@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -11,12 +12,18 @@ from command_handlers.conversations.attendance_conversation import (
     MarkAttendanceConversation,
 )
 from controllers.attendance_controller import AttendanceControlling
+from localization import Key
 from models.enums import AccessCategory
 from models.models import Attendance, Event
 from models.responses.responses import EventAttendance
 
 
-def make_event_attendance(user_id: int, event_id: int = 1, is_accountable: bool = True) -> EventAttendance:
+def make_event_attendance(
+    user_id: int,
+    event_id: int = 1,
+    is_accountable: bool = True,
+    attendance_deadline: Optional[datetime] = None,
+) -> EventAttendance:
     """Build a minimal EventAttendance for tests."""
     now = datetime.now()
     event = Event(
@@ -25,7 +32,7 @@ def make_event_attendance(user_id: int, event_id: int = 1, is_accountable: bool 
         description="",
         start=now,
         end=now + timedelta(hours=2),
-        is_event_locked=False,
+        attendance_deadline=attendance_deadline,
         is_accountable=is_accountable,
         access_category=AccessCategory.PUBLIC,
     )
@@ -120,6 +127,37 @@ class TestMarkAttendanceConversation:
 
         assert end_state == ConversationHandler.END
         self.controller.update_attendance.assert_awaited_once_with(events=[selected_event])
+
+    @pytest.mark.asyncio
+    async def test_event_selection_respects_attendance_deadline(self):
+        user_id = 55
+        past_deadline = datetime.now() - timedelta(hours=1)
+        event = make_event_attendance(
+            user_id=user_id,
+            event_id=987,
+            attendance_deadline=past_deadline,
+        )
+        self.controller.retrieve_upcoming_events.return_value = [event]
+
+        update_start = MagicMock(spec=Update)
+        update_start.effective_user = MagicMock(spec=User, id=user_id)
+        update_start.message = AsyncMock(spec=Message)
+        context = MagicMock(spec=CallbackContext)
+        context.user_data = {}
+
+        await self.conversation.attendance_command(update_start, context)
+
+        callback_event = MagicMock(spec=CallbackQuery)
+        callback_event.data = str(event.event.id)
+        callback_event.answer = AsyncMock()
+        callback_event.edit_message_text = AsyncMock()
+        update_event = MagicMock(spec=Update)
+        update_event.callback_query = callback_event
+
+        state = await self.conversation.event_selected(update_event, context)
+
+        callback_event.edit_message_text.assert_awaited_once_with(Key.attendance_locked)
+        assert state == ConversationHandler.END
 
     @pytest.mark.asyncio
     async def test_no_for_accountable_event_prompts_then_updates(self):
