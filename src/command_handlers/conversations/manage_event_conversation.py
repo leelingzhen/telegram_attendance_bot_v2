@@ -40,9 +40,10 @@ TITLE_PRESETS = [
 class ManageEventConversation(ConversationFlow):
     @property
     def conversation_handler(self) -> ConversationHandler:
-        date_pattern = rf"^{CalendarKeyboardMarkup.callback_data.date_prefix}\\d{{4}}-\\d{{2}}-\\d{{2}}$"
-        step_pattern = rf"^{CalendarKeyboardMarkup.callback_data.step_prefix}\\d{{4}}-\\d{{2}}$"
+        date_pattern = rf"^{CalendarKeyboardMarkup.callback_data.date_prefix}\d{{4}}-\d{{2}}-\d{{2}}$"
+        step_pattern = rf"^{CalendarKeyboardMarkup.callback_data.step_prefix}\d{{4}}-\d{{2}}$"
         access_pattern = rf"^({'|'.join(a.value for a in AccessCategory)})$"
+        event_pattern = r"^event:.+$"
 
         return ConversationHandler(
             entry_points=[
@@ -50,7 +51,7 @@ class ManageEventConversation(ConversationFlow):
             ],
             states={
                 CHOOSING_EVENT: [
-                    CallbackQueryHandler(self.selected_event, pattern=r"^event:\\d+$"),
+                    CallbackQueryHandler(self.selected_event, pattern=event_pattern),
                     CallbackQueryHandler(self.select_date, pattern="^set_datetime_new$"),
                 ],
                 SHOWING_EVENT_MENU: [
@@ -115,9 +116,11 @@ class ManageEventConversation(ConversationFlow):
         query = update.callback_query
         await query.answer()
 
-        event_id = int(query.data.split(":")[1])
+        event_key = query.data.split(":", maxsplit=1)[1]
         upcoming_events = context.user_data.get("upcoming_events", [])
-        selected_event = next((event for event in upcoming_events if event.id == event_id), None)
+        selected_event = next(
+            (event for event in upcoming_events if str(event.id) == event_key), None
+        )
 
         context.user_data["selected_event"] = selected_event
 

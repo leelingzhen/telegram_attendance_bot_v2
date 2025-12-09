@@ -6,6 +6,7 @@ from telegram import CallbackQuery, Message, Update
 from telegram.ext import CallbackContext, ConversationHandler
 
 from command_handlers.conversations.manage_event_conversation import (
+    CHOOSING_EVENT,
     SETTING_DATE,
     SETTING_TIME,
     SHOWING_EVENT_MENU,
@@ -72,6 +73,18 @@ async def test_select_date_shows_calendar(conversation, sample_event):
     query.edit_message_text.assert_awaited_once()
     assert context.user_data["initial_calendar_query"] == "start"
     assert state == SETTING_DATE
+
+
+def test_callback_patterns_accept_event_and_calendar(conversation):
+    handler = conversation.conversation_handler
+
+    choose_handlers = handler.states[CHOOSING_EVENT][0]
+    assert choose_handlers.pattern.match("event:123")
+    assert choose_handlers.pattern.match("event:uuid-123")
+
+    date_handler, step_handler = handler.states[SETTING_DATE]
+    assert date_handler.pattern.match(CalendarKeyboardMarkup.encode_date(date(2024, 5, 1)))
+    assert step_handler.pattern.match(CalendarKeyboardMarkup.encode_step(2024, 6))
 
 
 @pytest.mark.asyncio
