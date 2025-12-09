@@ -46,6 +46,7 @@ class BotCore:
             BotCommand("attendance", "[Guest and above] update attendance"),
             BotCommand("kaypoh", "[Member] Your friend never go u dw go is it??"),
             BotCommand("register", "[Public] register your details"),
+            BotCommand("manage_event", "[Core] add or update an existing event")
         ]
 
         await application.bot.set_my_commands(commands=bot_commands)

@@ -7,7 +7,6 @@ class AccessCategory(str, Enum):
     MEMBER = "member"
     ADMIN = "admin"
 
-
 class Gender(str, Enum):
     MALE = "Male"
     FEMALE = "Female"
