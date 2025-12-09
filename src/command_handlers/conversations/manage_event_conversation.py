@@ -191,11 +191,18 @@ class ManageEventConversation(ConversationFlow):
         selected_event: Event | None = context.user_data.get("selected_event")
 
         if isinstance(message, Message) and message.text:
+            time_text = message.text.strip()
+            try:
+                selected_time = datetime.strptime(time_text, "%H:%M")
+            except ValueError:
+                await message.reply_text(
+                    text="Please provide the time in HH:MM format, e.g. 18:00.",
+                )
+                return SETTING_TIME
+
             bot_message = await message.reply_text(text="ingesting custom format...")
             time_message: Message = context.user_data.get("time_message")
             await time_message.edit_reply_markup(reply_markup=None)
-
-            selected_time = datetime.strptime(message.text, "%H:%M")
 
         else:
             query = update.callback_query

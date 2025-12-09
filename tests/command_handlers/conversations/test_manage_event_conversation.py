@@ -150,6 +150,30 @@ async def test_update_event_datetime_sets_start_and_returns_to_menu(conversation
 
 
 @pytest.mark.asyncio
+async def test_update_event_datetime_reprompts_on_invalid_text(conversation, sample_event):
+    message = MagicMock(spec=Message)
+    message.text = "1800"
+    message.reply_text = AsyncMock()
+
+    update = MagicMock(spec=Update)
+    update.message = message
+
+    context = MagicMock(spec=CallbackContext)
+    context.user_data = {
+        "selected_event": sample_event,
+        "selected_date": date(2024, 5, 6),
+        "initial_calendar_query": "start",
+        "time_message": MagicMock(spec=Message),
+    }
+
+    state = await conversation.update_event_datetime(update, context)
+
+    message.reply_text.assert_awaited_once()
+    assert sample_event.start == datetime(2024, 5, 1, 10, 0)  # unchanged
+    assert state == SETTING_TIME
+
+
+@pytest.mark.asyncio
 async def test_commit_event_updates_controller(conversation, sample_event, controller):
     query = MagicMock(spec=CallbackQuery)
     query.answer = AsyncMock()
