@@ -65,5 +65,39 @@
     "Name: {name}",
     "Username: {username}",
     "Gender: {gender}"
-  ]
+  ],
+
+  "manage_event_choose_event": "Select an event to manage or create a new one.",
+  "manage_event_no_events": "No upcoming events found. Create a new one to get started.",
+  "manage_event_create_button": "Create new event",
+  "manage_event_prompt_start_datetime": [
+    "Pick a start date/time for the new event.",
+    "If the calendar picker is not available, send it in YYYY-MM-DD HH:MM (24h).",
+    "",
+    "You can also tap below to use the current time."
+  ],
+  "manage_event_use_now_button": "Use current time",
+  "manage_event_invalid_datetime": "Please send the datetime in this format: YYYY-MM-DD HH:MM (24h).",
+  "manage_event_new_event_created": "New event created for {start}. Configure the details below.",
+  "manage_event_main_menu_title": [
+    "Managing: {title}",
+    "Start: {start}",
+    "End: {end}",
+    "Access: {access}",
+    "Accountable: {accountable}"
+  ],
+  "manage_event_main_menu_instruction": "Choose a field to configure:",
+  "manage_event_set_title_button": "Title",
+  "manage_event_set_description_button": "Description",
+  "manage_event_set_start_button": "Event start",
+  "manage_event_set_end_button": "Event end",
+  "manage_event_set_deadline_button": "Attendance deadline",
+  "manage_event_set_accountability_button": "Accountability",
+  "manage_event_set_access_button": "Access level",
+  "manage_event_back_to_list": "Choose another event",
+  "manage_event_back_to_menu_button": "Back to menu",
+  "manage_event_choose_title": "Choose a title preset or pick Custom to type your own.",
+  "manage_event_custom_title_prompt": "Send the custom title for this event.",
+  "manage_event_title_updated": "Updated title to: {title}",
+  "manage_event_stub_option_not_ready": "Option not available yet."
 }
