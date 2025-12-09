@@ -152,6 +152,31 @@ async def test_update_event_datetime_sets_start_and_returns_to_menu(conversation
 
 
 @pytest.mark.asyncio
+async def test_update_event_end_not_before_start(conversation, sample_event):
+    sample_event.start = datetime(2024, 5, 6, 18, 0)
+    query = MagicMock(spec=CallbackQuery)
+    query.data = "1700"
+    query.answer = AsyncMock()
+    query.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message, edit_text=AsyncMock()))
+
+    update = MagicMock(spec=Update)
+    update.callback_query = query
+
+    context = MagicMock(spec=CallbackContext)
+    context.user_data = {
+        "selected_event": sample_event,
+        "selected_date": date(2024, 5, 6),
+        "initial_calendar_query": "end",
+    }
+
+    state = await conversation.update_event_datetime(update, context)
+
+    assert sample_event.end >= sample_event.start
+    assert sample_event.end == sample_event.start + timedelta(hours=1)
+    assert state == SHOWING_EVENT_MENU
+
+
+@pytest.mark.asyncio
 async def test_update_event_datetime_reprompts_on_invalid_text(conversation, sample_event):
     message = MagicMock(spec=Message)
     message.text = "notatime"
@@ -217,6 +242,8 @@ async def test_deadline_presets_and_clear(conversation, sample_event):
     flat = [btn for row in markup.inline_keyboard for btn in row]
     assert any(btn.text == "1 day before (23:59)" for btn in flat)
     assert any(btn.text == "Remove deadline" for btn in flat)
+    # Should allow picking a date before start (May 9)
+    assert any(btn.text.strip() == "9" for btn in flat)
 
     preset_query = MagicMock(spec=CallbackQuery)
     preset_query.data = "deadline_preset:none"

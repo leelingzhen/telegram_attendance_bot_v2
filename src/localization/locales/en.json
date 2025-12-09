@@ -89,15 +89,15 @@
   "manage_event_updating_title_from_button": "Got it - updating the title...",
   "manage_event_main_menu_title": [
     "Here is the current event overview:",
-    "- Title: {title}",
-    "- Description: {description}",
-    "- Starts: {start}",
-    "- Ends: {end}",
-    "- Attendance deadline: {deadline}",
-    "- Access: {access}",
-    "- Accountability: {accountable}"
+    "Title: {title}",
+    "Starts: {start}",
+    "Ends: {end}",
+    "Attendance deadline: {deadline}",
+    "Access: {access}",
+    "Accountability: {accountable}",
+    "Description: {description}"
   ],
-  "manage_event_reason_mandatory": "Reason required when someone cannot attend",
+  "manage_event_reason_mandatory": "Reason required for absences",
   "manage_event_reason_optional": "Reason optional for absences",
   "manage_event_main_menu_instruction": "What would you like to update next?",
   "manage_event_label_start": "start",
@@ -142,12 +142,12 @@
   "manage_event_confirm_changes_summary": [
     "Event updated!",
     "",
-    "- Title: {title}",
-    "- Description: {description}",
-    "- Starts: {start}",
-    "- Ends: {end}",
-    "- Attendance deadline: {deadline}",
-    "- Access: {access}",
-    "- Accountability: {accountable}"
+    "Title: {title}",
+    "Starts: {start}",
+    "Ends: {end}",
+    "Attendance deadline: {deadline}",
+    "Access: {access}",
+    "Accountability: {accountable}",
+    "Description: {description}"
   ]
 }

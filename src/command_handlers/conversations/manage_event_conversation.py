@@ -505,7 +505,7 @@ class ManageEventConversation(ConversationFlow):
 
         if query_type == "deadline":
             start_date = selected_event.start.date() if selected_event and selected_event.start else now_date
-            return start_date, start_date + timedelta(days=1)
+            return None, start_date + timedelta(days=1)
 
         return now_date, None
 
