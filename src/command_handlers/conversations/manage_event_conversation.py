@@ -13,6 +13,7 @@ from telegram.ext import (
 
 from command_handlers.conversations.conversation_flow import ConversationFlow
 from controllers.manage_event_controller import ManageEventControlling
+from models.enums import AccessCategory
 from models.models import Event
 from localization import Key
 
@@ -21,6 +22,9 @@ EVENT_MENU = 2
 CHOOSING_TITLE = 3
 WAITING_CUSTOM_TITLE = 4
 WAITING_START_DATETIME = 5
+WAITING_FIELD_INPUT = 6
+WAITING_ACCOUNTABILITY = 7
+WAITING_ACCESS = 8
 
 
 TITLE_PRESETS = [
@@ -46,11 +50,14 @@ class ManageEventConversation(ConversationFlow):
                 ],
                 EVENT_MENU: [
                     CallbackQueryHandler(self.prompt_title_selection, pattern="^set_title$"),
-                    CallbackQueryHandler(self.choose_another_event, pattern="^choose_another_event$"),
+                    CallbackQueryHandler(self.prompt_description_update, pattern="^set_description$"),
                     CallbackQueryHandler(
-                        self.handle_unimplemented_option,
-                        pattern="^(set_description|set_start_datetime|set_end_datetime|set_deadline_datetime|set_accountability|set_access_level)$",
+                        self.prompt_datetime_update,
+                        pattern="^(set_start_datetime|set_end_datetime|set_deadline_datetime)$",
                     ),
+                    CallbackQueryHandler(self.prompt_accountability_update, pattern="^set_accountability$"),
+                    CallbackQueryHandler(self.prompt_access_update, pattern="^set_access_level$"),
+                    CallbackQueryHandler(self.commit_event_changes, pattern="^commit_event$"),
                 ],
                 CHOOSING_TITLE: [
                     CallbackQueryHandler(self.handle_title_choice, pattern="^title:"),
@@ -63,6 +70,18 @@ class ManageEventConversation(ConversationFlow):
                     CallbackQueryHandler(self.use_current_start, pattern="^use_start_now$"),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_start_datetime_text),
                 ],
+                WAITING_FIELD_INPUT: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_field_input),
+                    CallbackQueryHandler(self.manage_event_main_menu, pattern="^back_to_menu$"),
+                ],
+                WAITING_ACCOUNTABILITY: [
+                    CallbackQueryHandler(self.handle_accountability_choice, pattern="^accountability:(true|false)$"),
+                    CallbackQueryHandler(self.manage_event_main_menu, pattern="^back_to_menu$"),
+                ],
+                WAITING_ACCESS: [
+                    CallbackQueryHandler(self.handle_access_choice, pattern="^access:.*$"),
+                    CallbackQueryHandler(self.manage_event_main_menu, pattern="^back_to_menu$"),
+                ],
             },
             fallbacks=[CommandHandler("cancel", self.cancel)],
         )
@@ -72,9 +91,11 @@ class ManageEventConversation(ConversationFlow):
 
     async def select_or_create_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Entry point for /manage_event - show existing events and create button."""
-        target = getattr(update, "message", None) or getattr(update, "callback_query", None)
+        target = update.message or update.callback_query
         if isinstance(target, CallbackQuery):
             await target.answer()
+        context.user_data.pop("manage_event_bot_message", None)
+        context.user_data.pop("pending_field", None)
         return await self._show_event_selection(target=target, context=context)
 
     async def handle_event_chosen(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -148,7 +169,7 @@ class ManageEventConversation(ConversationFlow):
         """Display the main configuration menu for the selected event."""
         selected_event: Optional[Event] = context.user_data.get("selected_event")
         if selected_event is None:
-            target = getattr(update, "callback_query", None) or getattr(update, "message", None)
+            target = update.callback_query or update.message
             if isinstance(target, CallbackQuery):
                 await target.answer()
             return await self._show_event_selection(target=target, context=context)
@@ -157,7 +178,7 @@ class ManageEventConversation(ConversationFlow):
             await update.callback_query.answer()
             target = update.callback_query
         else:
-            target = getattr(update, "message", None)
+            target = update.message
 
         return await self._send_main_menu(target=target, context=context, event=selected_event)
 
@@ -198,7 +219,6 @@ class ManageEventConversation(ConversationFlow):
 
         updated_event = selected_event.model_copy(update={"title": choice})
         context.user_data["selected_event"] = updated_event
-        self.controller.update_event(updated_event)
 
         prefix = Key.manage_event_title_updated.format(title=choice)
         return await self._send_main_menu(target=query, context=context, event=updated_event, prefix=prefix)
@@ -211,20 +231,165 @@ class ManageEventConversation(ConversationFlow):
 
         updated_event = selected_event.model_copy(update={"title": custom_title})
         context.user_data["selected_event"] = updated_event
-        self.controller.update_event(updated_event)
 
         prefix = Key.manage_event_title_updated.format(title=custom_title)
         return await self._send_main_menu(target=update.message, context=context, event=updated_event, prefix=prefix)
 
-    async def choose_another_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    async def prompt_description_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         query = update.callback_query
         await query.answer()
-        return await self._show_event_selection(target=query, context=context)
+        context.user_data["pending_field"] = "description"
+        return await self._prompt_field_message(
+            bot_query=query,
+            context=context,
+            prompt_text=Key.manage_event_prompt_description,
+        )
 
-    async def handle_unimplemented_option(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    async def prompt_datetime_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         query = update.callback_query
-        await query.answer(text=Key.manage_event_stub_option_not_ready)
-        return EVENT_MENU
+        await query.answer()
+
+        mapping = {
+            "set_start_datetime": ("start", Key.manage_event_prompt_start_input),
+            "set_end_datetime": ("end", Key.manage_event_prompt_end_input),
+            "set_deadline_datetime": ("attendance_deadline", Key.manage_event_prompt_deadline_input),
+        }
+
+        pending_field, prompt_text = mapping.get(
+            update.callback_query.data, ("start", Key.manage_event_prompt_start_input)
+        )
+        context.user_data["pending_field"] = pending_field
+
+        return await self._prompt_field_message(
+            bot_query=query,
+            context=context,
+            prompt_text=prompt_text,
+        )
+
+    async def prompt_accountability_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+
+        buttons = [
+            [
+                InlineKeyboardButton(Key.manage_event_accountable_true, callback_data="accountability:true"),
+                InlineKeyboardButton(Key.manage_event_accountable_false, callback_data="accountability:false"),
+            ],
+            [InlineKeyboardButton(Key.manage_event_back_to_menu_button, callback_data="back_to_menu")],
+        ]
+
+        bot_message = context.user_data.get("manage_event_bot_message") or query
+        new_message = await bot_message.edit_text(
+            text=Key.manage_event_accountability_prompt,
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        context.user_data["manage_event_bot_message"] = new_message
+        context.user_data["pending_field"] = "is_accountable"
+        return WAITING_ACCOUNTABILITY
+
+    async def handle_accountability_choice(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+        selected_event: Event | None = context.user_data.get("selected_event")
+        if selected_event is None:
+            return await self.select_or_create_event(update, context)
+
+        is_accountable = query.data.split(":")[1] == "true"
+        updated_event = selected_event.model_copy(update={"is_accountable": is_accountable})
+        context.user_data["selected_event"] = updated_event
+
+        prefix = Key.manage_event_accountability_updated.format(
+            value=Key.manage_event_accountable_true if is_accountable else Key.manage_event_accountable_false
+        )
+        return await self._send_main_menu(target=query, context=context, event=updated_event, prefix=prefix)
+
+    async def prompt_access_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+
+        buttons = [
+            [InlineKeyboardButton(text=category.value, callback_data=f"access:{category.value}")]
+            for category in AccessCategory
+        ]
+        buttons.append([InlineKeyboardButton(Key.manage_event_back_to_menu_button, callback_data="back_to_menu")])
+
+        bot_message = context.user_data.get("manage_event_bot_message") or query
+        new_message = await bot_message.edit_text(
+            text=Key.manage_event_access_prompt,
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        context.user_data["manage_event_bot_message"] = new_message
+        context.user_data["pending_field"] = "access_category"
+        return WAITING_ACCESS
+
+    async def handle_access_choice(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+        selected_event: Event | None = context.user_data.get("selected_event")
+        if selected_event is None:
+            return await self.select_or_create_event(update, context)
+
+        chosen_value = query.data.split(":")[1]
+        updated_event = selected_event.model_copy(update={"access_category": AccessCategory(chosen_value)})
+        context.user_data["selected_event"] = updated_event
+
+        prefix = Key.manage_event_access_updated.format(access=chosen_value)
+        return await self._send_main_menu(target=query, context=context, event=updated_event, prefix=prefix)
+
+    async def handle_field_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        selected_event: Event | None = context.user_data.get("selected_event")
+        pending_field: str | None = context.user_data.get("pending_field")
+
+        if selected_event is None or not pending_field:
+            return await self.select_or_create_event(update, context)
+
+        text_value = update.message.text.strip()
+        updated_event = selected_event
+        prefix: str | None = None
+
+        if pending_field == "description":
+            updated_event = selected_event.model_copy(update={"description": text_value})
+            prefix = Key.manage_event_description_updated
+        else:
+            try:
+                parsed_datetime = datetime.strptime(text_value, "%Y-%m-%d %H:%M")
+            except ValueError:
+                await update.message.reply_text(Key.manage_event_invalid_datetime)
+                return WAITING_FIELD_INPUT
+
+            update_data = {pending_field: parsed_datetime}
+            updated_event = selected_event.model_copy(update=update_data)
+
+            field_names = {
+                "start": Key.manage_event_start_label,
+                "end": Key.manage_event_end_label,
+                "attendance_deadline": Key.manage_event_deadline_label,
+            }
+            prefix = Key.manage_event_datetime_updated.format(
+                field=field_names.get(pending_field, pending_field),
+                value=parsed_datetime.strftime("%Y-%m-%d %H:%M"),
+            )
+
+        context.user_data["selected_event"] = updated_event
+        context.user_data.pop("pending_field", None)
+
+        return await self._send_main_menu(target=update.message, context=context, event=updated_event, prefix=prefix)
+
+    async def commit_event_changes(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+
+        selected_event: Event | None = context.user_data.get("selected_event")
+        if selected_event is None:
+            return await self.select_or_create_event(update, context)
+
+        self.controller.update_event(selected_event)
+        return await self._send_main_menu(
+            target=query,
+            context=context,
+            event=selected_event,
+            prefix=Key.manage_event_changes_committed,
+        )
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(Key.operation_cancelled)
@@ -235,6 +400,8 @@ class ManageEventConversation(ConversationFlow):
     ) -> int:
         upcoming_events: List[Event] = self.controller.retrieve_events(from_date=datetime.now())
         context.user_data["upcoming_events"] = upcoming_events
+        context.user_data.pop("manage_event_bot_message", None)
+        context.user_data.pop("pending_field", None)
 
         buttons: List[List[InlineKeyboardButton]] = [
             [
@@ -284,11 +451,17 @@ class ManageEventConversation(ConversationFlow):
         menu_text = "\n\n".join(text_blocks)
         keyboard = InlineKeyboardMarkup(self._build_main_menu_buttons())
 
-        if hasattr(target, "edit_message_text"):
-            await target.edit_message_text(menu_text, reply_markup=keyboard)
+        bot_message = context.user_data.get("manage_event_bot_message")
+        if bot_message:
+            await bot_message.edit_text(menu_text, reply_markup=keyboard)
         else:
-            await target.reply_text(menu_text, reply_markup=keyboard)
+            if hasattr(target, "edit_message_text"):
+                bot_message = await target.edit_message_text(menu_text, reply_markup=keyboard)
+            else:
+                bot_message = await target.reply_text(menu_text, reply_markup=keyboard)
+            context.user_data["manage_event_bot_message"] = bot_message
 
+        context.user_data.pop("pending_field", None)
         return EVENT_MENU
 
     def _build_main_menu_buttons(self) -> Iterable[List[InlineKeyboardButton]]:
@@ -300,5 +473,15 @@ class ManageEventConversation(ConversationFlow):
             [InlineKeyboardButton(text=Key.manage_event_set_deadline_button, callback_data="set_deadline_datetime")],
             [InlineKeyboardButton(text=Key.manage_event_set_accountability_button, callback_data="set_accountability")],
             [InlineKeyboardButton(text=Key.manage_event_set_access_button, callback_data="set_access_level")],
-            [InlineKeyboardButton(text=Key.manage_event_back_to_list, callback_data="choose_another_event")],
+            [InlineKeyboardButton(text=Key.manage_event_commit_changes_button, callback_data="commit_event")],
         ]
+
+    async def _prompt_field_message(
+        self, bot_query: CallbackQuery, context: ContextTypes.DEFAULT_TYPE, prompt_text: str
+    ) -> int:
+        buttons = [[InlineKeyboardButton(Key.manage_event_back_to_menu_button, callback_data="back_to_menu")]]
+
+        bot_message = context.user_data.get("manage_event_bot_message") or bot_query
+        new_message = await bot_message.edit_text(prompt_text, reply_markup=InlineKeyboardMarkup(buttons))
+        context.user_data["manage_event_bot_message"] = new_message
+        return WAITING_FIELD_INPUT
