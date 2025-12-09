@@ -28,12 +28,12 @@ SETTING_ACCESS = 8
 
 
 TITLE_PRESETS = [
-    "Field Training",
-    "Scrim",
-    "Hardcourt",
-    "Track",
-    "Gym/Pod",
-    "Cohesion",
+    Key.manage_event_title_preset_field_training,
+    Key.manage_event_title_preset_scrim,
+    Key.manage_event_title_preset_hardcourt,
+    Key.manage_event_title_preset_track,
+    Key.manage_event_title_preset_gym_pod,
+    Key.manage_event_title_preset_cohesion,
 ]
 
 
@@ -63,7 +63,7 @@ class ManageEventConversation(ConversationFlow):
                     CallbackQueryHandler(self.commit_event, pattern="^confirm_changes$"),
                 ],
                 SETTING_TITLE: [
-                    CallbackQueryHandler(self.set_event_title),
+                    CallbackQueryHandler(self.update_event_title),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.update_event_title),
 
                 ],
@@ -97,7 +97,7 @@ class ManageEventConversation(ConversationFlow):
         buttons: List[List[InlineKeyboardButton]] = [
             [
                 InlineKeyboardButton(
-                    f"{event.title} — {event.start.strftime('%Y-%m-%d %H:%M')}",
+                    f"{event.title} — {self._format_datetime(event.start)}",
                     callback_data=f"event:{event.id}",
                 )
             ]
@@ -124,7 +124,7 @@ class ManageEventConversation(ConversationFlow):
 
         context.user_data["selected_event"] = selected_event
 
-        bot_message = await query.edit_message_text(text="existing event selected")
+        bot_message = await query.edit_message_text(text=Key.manage_event_loaded_event)
 
         return await self.manage_event_main_menu(update, context, bot_message)
 
@@ -155,13 +155,14 @@ class ManageEventConversation(ConversationFlow):
             return SETTING_DATE
 
         query_type = query.data.split("_").pop()
+        query_label = self._query_label(query_type)
         context.user_data["initial_calendar_query"] = query_type
 
         base_date = self._starting_date_for_query(context, query_type)
         markup = CalendarKeyboardMarkup.build(year=base_date.year, month=base_date.month)
 
         await query.edit_message_text(
-            text=f"Select {query_type} date",
+            text=Key.manage_event_select_date_prompt.format(label=query_label),
             reply_markup=markup,
         )
 
@@ -175,9 +176,11 @@ class ManageEventConversation(ConversationFlow):
         context.user_data["selected_date"] = selected_date
 
         query_type = context.user_data.get("initial_calendar_query", "start")
+        query_label = self._query_label(query_type)
+        example_time = datetime.now().strftime("%H%M")
 
         time_message = await query.edit_message_text(
-            text=f"Set the {query_type} time. You may use the options or reply with HH:MM format.",
+            text=Key.manage_event_set_time_prompt.format(label=query_label, example_time=example_time),
             reply_markup=self._build_time_keyboard(),
         )
         context.user_data["time_message"] = time_message
@@ -192,23 +195,25 @@ class ManageEventConversation(ConversationFlow):
 
         if isinstance(message, Message) and message.text:
             time_text = message.text.strip()
-            try:
-                selected_time = datetime.strptime(time_text, "%H:%M")
-            except ValueError:
-                await message.reply_text(
-                    text="Please provide the time in HH:MM format, e.g. 18:00.",
-                )
+            selected_time = self._parse_time(time_text)
+            if not selected_time:
+                example_time = datetime.now().strftime("%H%M")
+                await message.reply_text(text=Key.manage_event_invalid_time.format(example_time=example_time))
                 return SETTING_TIME
 
-            bot_message = await message.reply_text(text="ingesting custom format...")
+            bot_message = await message.reply_text(text=Key.manage_event_setting_time_from_text)
             time_message: Message = context.user_data.get("time_message")
             await time_message.edit_reply_markup(reply_markup=None)
 
         else:
             query = update.callback_query
             await query.answer()
-            bot_message = await query.edit_message_text(text="ingesting time...")
-            selected_time = datetime.strptime(query.data, "%H:%M")
+            bot_message = await query.edit_message_text(text=Key.manage_event_setting_time)
+            selected_time = self._parse_time(query.data)
+            if not selected_time:
+                example_time = datetime.now().strftime("%H%M")
+                await query.edit_message_text(text=Key.manage_event_invalid_time.format(example_time=example_time))
+                return SETTING_TIME
 
         selected_datetime = datetime.combine(selected_date, selected_time.time())
 
@@ -250,7 +255,7 @@ class ManageEventConversation(ConversationFlow):
         selected_event: Event = context.user_data.get("selected_event")
 
         if message and message.text:
-            bot_message = await message.reply_text(text="ingesting custom title...")
+            bot_message = await message.reply_text(text=Key.manage_event_updating_title_from_text)
             time_message: Message = context.user_data.get("title_message")
             await time_message.edit_reply_markup(reply_markup=None)
 
@@ -259,7 +264,7 @@ class ManageEventConversation(ConversationFlow):
         else:
             query = update.callback_query
             await query.answer()
-            bot_message = await query.edit_message_text(text="ingesting title...")
+            bot_message = await query.edit_message_text(text=Key.manage_event_updating_title_from_button)
             title = query.data
 
         selected_event.title = title
@@ -271,7 +276,7 @@ class ManageEventConversation(ConversationFlow):
         query = update.callback_query
         await query.answer()
 
-        await query.edit_message_text(text="Send the description for this event.")
+        await query.edit_message_text(text=Key.manage_event_description_prompt)
 
         return SETTING_DESCRIPTION
 
@@ -280,7 +285,7 @@ class ManageEventConversation(ConversationFlow):
 
         context.user_data["selected_event"].description = description
 
-        bot_message = await update.message.reply_text(text="ingesting description")
+        bot_message = await update.message.reply_text(text=Key.manage_event_description_updated)
         return await self.manage_event_main_menu(update, context, bot_message)
 
     async def toggle_accountable_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -306,7 +311,7 @@ class ManageEventConversation(ConversationFlow):
         ]
 
         await query.edit_message_text(
-            text="Select who can view this event.",
+            text=Key.manage_event_access_prompt,
             reply_markup=InlineKeyboardMarkup(buttons),
         )
         return SETTING_ACCESS
@@ -330,7 +335,8 @@ class ManageEventConversation(ConversationFlow):
         selected_event = context.user_data.get("selected_event")
         self.controller.update_event(selected_event)
 
-        await query.edit_message_text(text=Key.manage_event_confirm_changes)
+        fields = self._event_display_fields(selected_event)
+        await query.edit_message_text(text=Key.manage_event_confirm_changes_summary.format(**fields))
         return ConversationHandler.END
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -348,15 +354,7 @@ class ManageEventConversation(ConversationFlow):
             text_blocks.append(prefix)
 
         text_blocks.append(
-            Key.manage_event_main_menu_title.format(
-                title=event.title,
-                start=event.start.strftime("%Y-%m-%d %H:%M"),
-                end=event.end.strftime("%Y-%m-%d %H:%M"),
-                access=event.access_category.value,
-                accountable=Key.manage_event_reason_mandatory
-                if event.is_accountable
-                else Key.manage_event_reason_optional,
-            )
+            Key.manage_event_main_menu_title.format(**ManageEventConversation._event_display_fields(event))
         )
         text_blocks.append(Key.manage_event_main_menu_instruction)
 
@@ -367,7 +365,7 @@ class ManageEventConversation(ConversationFlow):
     @staticmethod
     async def ensure_message(
             query: CallbackQuery,
-            placeholder_text: str = "Working..."
+            placeholder_text: str = Key.manage_event_working_placeholder
     ) -> Message:
         msg = query.message
 
@@ -387,21 +385,44 @@ class ManageEventConversation(ConversationFlow):
             [InlineKeyboardButton(text=Key.manage_event_set_deadline_button, callback_data="set_datetime_deadline")],
             [InlineKeyboardButton(text=Key.manage_event_set_accountability_button, callback_data="set_accountability")],
             [InlineKeyboardButton(text=Key.manage_event_set_access_button, callback_data="set_access")],
-            [InlineKeyboardButton(text=Key.manage_event_confirm_changes, callback_data="confirm_changes")],
+            [InlineKeyboardButton(text=Key.manage_event_confirm_changes_button, callback_data="confirm_changes")],
         ]
 
     @staticmethod
     def _build_time_keyboard() -> InlineKeyboardMarkup:
-        preset_times = ["08:00", "12:00", "18:00", "20:00"]
+        raw_times = ["0900", "1130", "1300", "1330", "1400", "1500", "1800", "1900", "2200"]
         rows: List[List[InlineKeyboardButton]] = []
-        for i in range(0, len(preset_times), 2):
-            rows.append(
-                [
-                    InlineKeyboardButton(text=preset_times[i], callback_data=preset_times[i]),
-                    InlineKeyboardButton(text=preset_times[i + 1], callback_data=preset_times[i + 1]),
-                ]
-            )
+        for i in range(0, len(raw_times), 3):
+            chunk = raw_times[i:i + 3]
+            row: List[InlineKeyboardButton] = []
+            for t in chunk:
+                row.append(InlineKeyboardButton(text=t, callback_data=t))
+            rows.append(row)
         return InlineKeyboardMarkup(rows)
+
+    @staticmethod
+    def _format_datetime(dt: datetime | None) -> str:
+        if not dt:
+            return str(Key.manage_event_not_set)
+        fmt = str(Key.manage_event_datetime_format)
+        return dt.strftime(fmt)
+
+    @staticmethod
+    def _event_display_fields(event: Event) -> dict[str, str]:
+        description = event.description.strip() if event.description else str(Key.manage_event_no_description)
+        deadline = ManageEventConversation._format_datetime(event.attendance_deadline) if event.attendance_deadline else str(Key.manage_event_no_deadline)
+
+        return {
+            "title": event.title or str(Key.manage_event_untitled),
+            "description": description,
+            "start": ManageEventConversation._format_datetime(event.start),
+            "end": ManageEventConversation._format_datetime(event.end),
+            "deadline": deadline,
+            "access": event.access_category.value.title(),
+            "accountable": Key.manage_event_reason_mandatory
+            if event.is_accountable
+            else Key.manage_event_reason_optional,
+        }
 
     @staticmethod
     def _starting_date_for_query(context: ContextTypes.DEFAULT_TYPE, query_type: str) -> date:
@@ -417,3 +438,30 @@ class ManageEventConversation(ConversationFlow):
             return selected_event.attendance_deadline.date()
 
         return date.today()
+
+    @staticmethod
+    def _query_label(query_type: str) -> str:
+        label_map = {
+            "new": Key.manage_event_label_start,
+            "start": Key.manage_event_label_start,
+            "end": Key.manage_event_label_end,
+            "deadline": Key.manage_event_label_deadline,
+        }
+        return label_map.get(query_type, Key.manage_event_label_start)
+
+    @staticmethod
+    def _parse_time(time_text: str) -> Optional[datetime]:
+        """
+        Parse a time string in HHMM format (optionally with a colon provided by the user).
+        """
+        if not time_text:
+            return None
+
+        clean = time_text.replace(":", "").strip()
+        if len(clean) != 4 or not clean.isdigit():
+            return None
+
+        try:
+            return datetime.strptime(clean, "%H%M")
+        except ValueError:
+            return None

@@ -129,7 +129,7 @@ async def test_set_time_stores_selected_date(conversation):
 @pytest.mark.asyncio
 async def test_update_event_datetime_sets_start_and_returns_to_menu(conversation, sample_event):
     query = MagicMock(spec=CallbackQuery)
-    query.data = "08:00"
+    query.data = "0800"
     query.answer = AsyncMock()
     query.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message, edit_text=AsyncMock()))
 
@@ -152,7 +152,7 @@ async def test_update_event_datetime_sets_start_and_returns_to_menu(conversation
 @pytest.mark.asyncio
 async def test_update_event_datetime_reprompts_on_invalid_text(conversation, sample_event):
     message = MagicMock(spec=Message)
-    message.text = "1800"
+    message.text = "notatime"
     message.reply_text = AsyncMock()
 
     update = MagicMock(spec=Update)
