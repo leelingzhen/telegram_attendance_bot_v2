@@ -82,9 +82,11 @@ def test_callback_patterns_accept_event_and_calendar(conversation):
     assert choose_handlers.pattern.match("event:123")
     assert choose_handlers.pattern.match("event:uuid-123")
 
-    date_handler, step_handler = handler.states[SETTING_DATE]
-    assert date_handler.pattern.match(CalendarKeyboardMarkup.encode_date(date(2024, 5, 1)))
-    assert step_handler.pattern.match(CalendarKeyboardMarkup.encode_step(2024, 6))
+    date_handlers = handler.states[SETTING_DATE]
+    date_pattern = CalendarKeyboardMarkup.encode_date(date(2024, 5, 1))
+    step_pattern = CalendarKeyboardMarkup.encode_step(2024, 6)
+    assert any(getattr(h, "pattern", None) and h.pattern.match(date_pattern) for h in date_handlers)
+    assert any(getattr(h, "pattern", None) and h.pattern.match(step_pattern) for h in date_handlers)
 
 
 @pytest.mark.asyncio
@@ -171,6 +173,62 @@ async def test_update_event_datetime_reprompts_on_invalid_text(conversation, sam
     message.reply_text.assert_awaited_once()
     assert sample_event.start == datetime(2024, 5, 1, 10, 0)  # unchanged
     assert state == SETTING_TIME
+
+
+@pytest.mark.asyncio
+async def test_end_date_flow_includes_use_start_button(conversation, sample_event):
+    query = MagicMock(spec=CallbackQuery)
+    query.data = "set_datetime_end"
+    query.answer = AsyncMock()
+    query.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
+
+    update = MagicMock(spec=Update)
+    update.callback_query = query
+
+    context = MagicMock(spec=CallbackContext)
+    context.user_data = {"selected_event": sample_event}
+
+    await conversation.select_date(update, context)
+
+    args, kwargs = query.edit_message_text.await_args
+    markup = kwargs["reply_markup"]
+    flat = [btn for row in markup.inline_keyboard for btn in row]
+    assert any(btn.text == "Use start date" for btn in flat)
+
+
+@pytest.mark.asyncio
+async def test_deadline_presets_and_clear(conversation, sample_event):
+    sample_event.start = datetime(2024, 5, 10, 12, 0)
+    sample_event.attendance_deadline = datetime(2024, 5, 9, 23, 59)
+    query = MagicMock(spec=CallbackQuery)
+    query.data = "set_datetime_deadline"
+    query.answer = AsyncMock()
+    query.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
+
+    update = MagicMock(spec=Update)
+    update.callback_query = query
+
+    context = MagicMock(spec=CallbackContext)
+    context.user_data = {"selected_event": sample_event}
+
+    await conversation.select_date(update, context)
+    args, kwargs = query.edit_message_text.await_args
+    markup = kwargs["reply_markup"]
+    flat = [btn for row in markup.inline_keyboard for btn in row]
+    assert any(btn.text == "1 day before (23:59)" for btn in flat)
+    assert any(btn.text == "Remove deadline" for btn in flat)
+
+    preset_query = MagicMock(spec=CallbackQuery)
+    preset_query.data = "deadline_preset:none"
+    preset_query.answer = AsyncMock()
+    preset_query.edit_message_text = AsyncMock()
+    preset_update = MagicMock(spec=Update)
+    preset_update.callback_query = preset_query
+    context.user_data["initial_calendar_query"] = "deadline"
+
+    state = await conversation.apply_deadline_preset(preset_update, context)
+    assert sample_event.attendance_deadline is None
+    assert state == SHOWING_EVENT_MENU
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Optional
 
 from telegram import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
@@ -71,6 +71,8 @@ class ManageEventConversation(ConversationFlow):
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.update_event_description),
                 ],
                 SETTING_DATE: [
+                    CallbackQueryHandler(self.use_start_date, pattern="^use_start_date$"),
+                    CallbackQueryHandler(self.apply_deadline_preset, pattern=r"^deadline_preset:.+$"),
                     CallbackQueryHandler(self.set_time, pattern=date_pattern),
                     CallbackQueryHandler(self.select_date, pattern=step_pattern),
                 ],
@@ -150,7 +152,17 @@ class ManageEventConversation(ConversationFlow):
 
         if query.data.startswith(CalendarKeyboardMarkup.callback_data.step_prefix):
             year, month = CalendarKeyboardMarkup.parse_step(query.data)
-            markup = CalendarKeyboardMarkup.build(year=year, month=month)
+            range_start, range_end = self._calendar_range_for_query(context)
+            markup = CalendarKeyboardMarkup.build(
+                year=year,
+                month=month,
+                start_date=range_start,
+                end_date=range_end,
+            )
+            extra_rows = self._extra_calendar_buttons(context)
+            if extra_rows:
+                combined_rows = list(markup.inline_keyboard) + extra_rows
+                markup = InlineKeyboardMarkup(combined_rows)
             await query.edit_message_reply_markup(reply_markup=markup)
             return SETTING_DATE
 
@@ -159,7 +171,17 @@ class ManageEventConversation(ConversationFlow):
         context.user_data["initial_calendar_query"] = query_type
 
         base_date = self._starting_date_for_query(context, query_type)
-        markup = CalendarKeyboardMarkup.build(year=base_date.year, month=base_date.month)
+        range_start, range_end = self._calendar_range_for_query(context, query_type)
+        markup = CalendarKeyboardMarkup.build(
+            year=base_date.year,
+            month=base_date.month,
+            start_date=range_start,
+            end_date=range_end,
+        )
+        extra_rows = self._extra_calendar_buttons(context, query_type)
+        if extra_rows:
+            combined_rows = list(markup.inline_keyboard) + extra_rows
+            markup = InlineKeyboardMarkup(combined_rows)
 
         await query.edit_message_text(
             text=Key.manage_event_select_date_prompt.format(label=query_label),
@@ -179,13 +201,38 @@ class ManageEventConversation(ConversationFlow):
         query_label = self._query_label(query_type)
         example_time = datetime.now().strftime("%H%M")
 
-        time_message = await query.edit_message_text(
-            text=Key.manage_event_set_time_prompt.format(label=query_label, example_time=example_time),
-            reply_markup=self._build_time_keyboard(),
-        )
-        context.user_data["time_message"] = time_message
+        await self._prompt_time_selection(query, context, query_label, example_time)
 
         return SETTING_TIME
+
+    async def use_start_date(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+
+        selected_event: Event | None = context.user_data.get("selected_event")
+        initial_query = context.user_data.get("initial_calendar_query")
+        if not selected_event or not selected_event.start:
+            return await self.manage_event_main_menu(update, context, await self.ensure_message(query))
+
+        context.user_data["selected_date"] = selected_event.start.date()
+        query_label = self._query_label(initial_query)
+        return await self._prompt_time_selection(query, context, query_label)
+
+    async def apply_deadline_preset(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        query = update.callback_query
+        await query.answer()
+
+        preset = query.data.split(":", maxsplit=1)[1]
+        selected_event: Event | None = context.user_data.get("selected_event")
+        if not selected_event or not selected_event.start:
+            return await self.manage_event_main_menu(update, context, await self.ensure_message(query))
+
+        target = self._deadline_from_preset(selected_event.start, preset)
+        selected_event.attendance_deadline = target
+        context.user_data["selected_event"] = selected_event
+
+        bot_message = await self.ensure_message(query)
+        return await self.manage_event_main_menu(update, context, bot_message)
 
     async def update_event_datetime(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         message = getattr(update, "message", None)
@@ -390,7 +437,7 @@ class ManageEventConversation(ConversationFlow):
 
     @staticmethod
     def _build_time_keyboard() -> InlineKeyboardMarkup:
-        raw_times = ["0900", "1130", "1300", "1330", "1400", "1500", "1800", "1900", "2200"]
+        raw_times = ["0800", "0900", "1130", "1300", "1330", "1400", "1500", "1800", "1900", "2200", "2330"]
         rows: List[List[InlineKeyboardButton]] = []
         for i in range(0, len(raw_times), 3):
             chunk = raw_times[i:i + 3]
@@ -426,18 +473,41 @@ class ManageEventConversation(ConversationFlow):
 
     @staticmethod
     def _starting_date_for_query(context: ContextTypes.DEFAULT_TYPE, query_type: str) -> date:
+        now_date = datetime.now().date()
         selected_event: Event | None = context.user_data.get("selected_event")
-        if not selected_event:
-            return date.today()
 
-        if query_type == "start":
+        if query_type in ("new", "start"):
+            return now_date
+
+        if query_type == "end" and selected_event and selected_event.start:
             return selected_event.start.date()
-        if query_type == "end":
-            return selected_event.end.date()
-        if query_type == "deadline" and selected_event.attendance_deadline:
-            return selected_event.attendance_deadline.date()
 
-        return date.today()
+        if query_type == "deadline" and selected_event and selected_event.start:
+            return selected_event.start.date()
+
+        return now_date
+
+    @staticmethod
+    def _calendar_range_for_query(
+        context: ContextTypes.DEFAULT_TYPE,
+        query_type: Optional[str] = None,
+    ) -> tuple[Optional[date], Optional[date]]:
+        selected_event: Event | None = context.user_data.get("selected_event")
+        query_type = query_type or context.user_data.get("initial_calendar_query", "start")
+        now_date = datetime.now().date()
+
+        if query_type in ("new", "start"):
+            return now_date, None
+
+        if query_type == "end":
+            start_date = selected_event.start.date() if selected_event and selected_event.start else now_date
+            return start_date, None
+
+        if query_type == "deadline":
+            start_date = selected_event.start.date() if selected_event and selected_event.start else now_date
+            return start_date, start_date + timedelta(days=1)
+
+        return now_date, None
 
     @staticmethod
     def _query_label(query_type: str) -> str:
@@ -465,3 +535,63 @@ class ManageEventConversation(ConversationFlow):
             return datetime.strptime(clean, "%H%M")
         except ValueError:
             return None
+
+    @staticmethod
+    def _deadline_from_preset(start_dt: datetime, preset: str) -> datetime:
+        if preset.endswith("d"):
+            days_before = int(preset[:-1])
+            target_date = start_dt.date() - timedelta(days=days_before)
+            # set to end of that day (23:59)
+            return datetime.combine(target_date, datetime.min.time().replace(hour=23, minute=59))
+        if preset.endswith("h"):
+            hours_before = int(preset[:-1])
+            return start_dt - timedelta(hours=hours_before)
+        if preset == "none":
+            return None
+        return start_dt
+
+    def _extra_calendar_buttons(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        query_type: Optional[str] = None,
+    ) -> List[List[InlineKeyboardButton]]:
+        query_type = query_type or context.user_data.get("initial_calendar_query", "start")
+        selected_event: Event | None = context.user_data.get("selected_event")
+        buttons: List[List[InlineKeyboardButton]] = []
+
+        if query_type in ("end", "deadline") and selected_event and selected_event.start:
+            buttons.append(
+                [InlineKeyboardButton(text=Key.manage_event_use_start_date_button, callback_data="use_start_date")]
+            )
+
+        if query_type == "deadline":
+            preset_buttons = [
+                InlineKeyboardButton(text=Key.manage_event_deadline_preset_1d, callback_data="deadline_preset:1d"),
+                InlineKeyboardButton(text=Key.manage_event_deadline_preset_2d, callback_data="deadline_preset:2d"),
+            ]
+            preset_buttons_hours = [
+                InlineKeyboardButton(text=Key.manage_event_deadline_preset_3h, callback_data="deadline_preset:3h"),
+                InlineKeyboardButton(text=Key.manage_event_deadline_preset_6h, callback_data="deadline_preset:6h"),
+            ]
+            buttons.append(preset_buttons)
+            buttons.append(preset_buttons_hours)
+            buttons.append(
+                [InlineKeyboardButton(text=Key.manage_event_deadline_clear_button, callback_data="deadline_preset:none")]
+            )
+
+        return buttons
+
+    async def _prompt_time_selection(
+        self,
+        query: CallbackQuery,
+        context: ContextTypes.DEFAULT_TYPE,
+        query_label: str,
+        example_time: Optional[str] = None,
+    ) -> int:
+        example = example_time or datetime.now().strftime("%H%M")
+        time_message = await query.edit_message_text(
+            text=Key.manage_event_set_time_prompt.format(label=query_label, example_time=example),
+            reply_markup=self._build_time_keyboard(),
+        )
+        context.user_data["time_message"] = time_message
+        return SETTING_TIME

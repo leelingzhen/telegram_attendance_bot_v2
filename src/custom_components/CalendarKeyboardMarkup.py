@@ -1,7 +1,7 @@
-from calendar import Calendar, month_name
+from calendar import Calendar, month_name, monthrange
 from dataclasses import dataclass
 from datetime import date
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -25,7 +25,14 @@ class CalendarKeyboardMarkup:
     callback_data = CalendarCallbackData()
 
     @classmethod
-    def build(cls, year: int | None = None, month: int | None = None) -> InlineKeyboardMarkup:
+    def build(
+        cls,
+        year: int | None = None,
+        month: int | None = None,
+        *,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> InlineKeyboardMarkup:
         today = date.today()
         year = year or today.year
         month = month or today.month
@@ -58,20 +65,27 @@ class CalendarKeyboardMarkup:
                     continue
 
                 callback = cls.encode_date(day)
-                row.append(InlineKeyboardButton(str(day.day), callback_data=callback))
+                is_disabled = (start_date and day < start_date) or (end_date and day > end_date)
+                cb_data = "noop" if is_disabled else callback
+                label = " " if is_disabled else str(day.day)
+                row.append(InlineKeyboardButton(label, callback_data=cb_data))
             keyboard.append(row)
 
         prev_year, prev_month = cls._step_month(year, month, -1)
         next_year, next_month = cls._step_month(year, month, 1)
+        prev_enabled = cls._month_within_range(prev_year, prev_month, start_date, end_date)
+        next_enabled = cls._month_within_range(next_year, next_month, start_date, end_date)
 
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    "◀️", callback_data=cls.encode_step(prev_year, prev_month)
+                    "◀️" if prev_enabled else " ",
+                    callback_data=cls.encode_step(prev_year, prev_month) if prev_enabled else "noop",
                 ),
                 InlineKeyboardButton(" ", callback_data="noop"),
                 InlineKeyboardButton(
-                    "▶️", callback_data=cls.encode_step(next_year, next_month)
+                    "▶️" if next_enabled else " ",
+                    callback_data=cls.encode_step(next_year, next_month) if next_enabled else "noop",
                 ),
             ]
         )
@@ -108,3 +122,22 @@ class CalendarKeyboardMarkup:
         if month == 13:
             return year + 1, 1
         return year, month
+
+    @staticmethod
+    def _month_within_range(
+        year: int,
+        month: int,
+        start_date: Optional[date],
+        end_date: Optional[date],
+    ) -> bool:
+        """
+        Return True if the month intersects with the allowed range.
+        """
+        first_day = date(year, month, 1)
+        last_day = date(year, month, monthrange(year, month)[1])
+
+        if start_date and last_day < start_date:
+            return False
+        if end_date and first_day > end_date:
+            return False
+        return True
