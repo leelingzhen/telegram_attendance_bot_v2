@@ -38,7 +38,7 @@ class FakeAttendanceController(AttendanceControlling):
                     description="test description",
                     start=datetime.now(),
                     end=datetime.now() + timedelta(hours=2),
-                    is_event_locked=False,
+                    attendance_deadline=None,
                     is_accountable=True,
                     access_category=AccessCategory.PUBLIC,
                 ),

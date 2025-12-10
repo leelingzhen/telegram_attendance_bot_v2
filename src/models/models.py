@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from models.enums import AccessCategory, Gender
@@ -30,9 +30,36 @@ class Event(BaseModel):
     description: Optional[str] = None
     start: datetime
     end: datetime
-    is_event_locked: bool
+    attendance_deadline: Optional[datetime] = None  # when attendance changes close
     is_accountable: bool
     access_category: AccessCategory
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name == "start":
+            self._reconcile_after_start_change()
+
+    def _reconcile_after_start_change(self) -> None:
+        """Keep end/deadline consistent when start changes."""
+        current_start = getattr(self, "start", None)
+        current_end = getattr(self, "end", None)
+        deadline = getattr(self, "attendance_deadline", None)
+
+        if current_start and current_end and current_start > current_end:
+            super().__setattr__("end", current_start + timedelta(hours=2))
+
+        if current_start and deadline and current_start <= deadline:
+            super().__setattr__("attendance_deadline", None)
+
+    def is_attendance_locked(self, now: Optional[datetime] = None) -> bool:
+        """
+        Return True when the attendance deadline has passed.
+        None deadlines mean the event stays open.
+        """
+        if self.attendance_deadline is None:
+            return False
+
+        return (now or datetime.now()) >= self.attendance_deadline
 
 class Attendance(BaseModel):
     user_id: int = None
@@ -58,4 +85,3 @@ class Attendance(Attendance):
         for tag in html_tags:
             text = text.replace(tag, html_tags[tag])
         return text
-

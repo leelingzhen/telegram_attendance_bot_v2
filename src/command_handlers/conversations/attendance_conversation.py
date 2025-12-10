@@ -100,7 +100,7 @@ class MarkAttendanceConversation(ConversationFlow):
 
         context.user_data["selected_event"] = selected_event
 
-        if selected_event.event.is_event_locked:
+        if selected_event.event.is_attendance_locked():
             await query.edit_message_text(Key.attendance_locked)
             return ConversationHandler.END
 
