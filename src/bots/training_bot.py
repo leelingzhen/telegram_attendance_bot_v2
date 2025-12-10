@@ -1,6 +1,7 @@
 from bots.bot_core import BotCore
 from command_handlers.conversations.get_team_attendance_conversation import GetTeamAttendanceConversation
 from command_handlers.conversations.manage_event_conversation import ManageEventConversation
+from command_handlers.conversations.manage_access_conversation import ManageAccessConversation
 from command_handlers.start_handler import StartHandler
 from command_handlers.cancel_handler import CancelHandler
 from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
@@ -8,6 +9,7 @@ from command_handlers.conversations.registration_conversation import Registratio
 from controllers.attendance_controller import FakeAttendanceController
 from controllers.manage_event_controller import FakeManageEventController
 from controllers.registration_controller import FakeRegistrationController
+from controllers.manage_access_controller import FakeManageAccessController
 
 import logging
 
@@ -56,11 +58,13 @@ class TrainingBot:
         team_attendance_conversation = GetTeamAttendanceConversation(controller=FakeTeamAttendanceController())
         registration_conversation = RegistrationConversation(controller=FakeRegistrationController())
         manage_event_conversation = ManageEventConversation(controller=FakeManageEventController())
+        manage_access_conversation = ManageAccessConversation(controller=FakeManageAccessController())
 
         self.core.application.add_handler(attendance_conv.conversation_handler)
         self.core.application.add_handler(team_attendance_conversation.conversation_handler)
         self.core.application.add_handler(registration_conversation.conversation_handler)
         self.core.application.add_handler(manage_event_conversation.conversation_handler)
+        self.core.application.add_handler(manage_access_conversation.conversation_handler)
 
     def run(self):
         """Run the bot"""
