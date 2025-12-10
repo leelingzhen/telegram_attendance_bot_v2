@@ -172,8 +172,35 @@ async def test_update_event_end_not_before_start(conversation, sample_event):
     state = await conversation.update_event_datetime(update, context)
 
     assert sample_event.end >= sample_event.start
-    assert sample_event.end == sample_event.start + timedelta(hours=1)
-    assert state == SHOWING_EVENT_MENU
+    assert sample_event.end == datetime(2024, 5, 6, 20, 0)
+    assert state == SETTING_DATE
+
+
+@pytest.mark.asyncio
+async def test_end_time_presets_filter_before_start(conversation, sample_event):
+    sample_event.start = datetime(2024, 5, 6, 18, 0)
+    chosen_date = sample_event.start.date()
+    query = MagicMock(spec=CallbackQuery)
+    query.data = CalendarKeyboardMarkup.encode_date(chosen_date)
+    query.answer = AsyncMock()
+    query.edit_message_text = AsyncMock(return_value=AsyncMock(spec=Message))
+
+    update = MagicMock(spec=Update)
+    update.callback_query = query
+
+    context = MagicMock(spec=CallbackContext)
+    context.user_data = {
+        "selected_event": sample_event,
+        "initial_calendar_query": "end",
+    }
+
+    await conversation.set_time(update, context)
+
+    args, kwargs = query.edit_message_text.await_args
+    markup = kwargs["reply_markup"]
+    flat_callbacks = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+
+    assert all(int(cb) >= 1800 for cb in flat_callbacks)
 
 
 @pytest.mark.asyncio

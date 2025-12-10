@@ -153,16 +153,13 @@ class ManageEventConversation(ConversationFlow):
         if query.data.startswith(CalendarKeyboardMarkup.callback_data.step_prefix):
             year, month = CalendarKeyboardMarkup.parse_step(query.data)
             range_start, range_end = self._calendar_range_for_query(context)
-            markup = CalendarKeyboardMarkup.build(
+            markup = self._build_calendar_markup(
+                context=context,
                 year=year,
                 month=month,
-                start_date=range_start,
-                end_date=range_end,
+                range_start=range_start,
+                range_end=range_end,
             )
-            extra_rows = self._extra_calendar_buttons(context)
-            if extra_rows:
-                combined_rows = list(markup.inline_keyboard) + extra_rows
-                markup = InlineKeyboardMarkup(combined_rows)
             await query.edit_message_reply_markup(reply_markup=markup)
             return SETTING_DATE
 
@@ -172,16 +169,14 @@ class ManageEventConversation(ConversationFlow):
 
         base_date = self._starting_date_for_query(context, query_type)
         range_start, range_end = self._calendar_range_for_query(context, query_type)
-        markup = CalendarKeyboardMarkup.build(
+        markup = self._build_calendar_markup(
+            context=context,
             year=base_date.year,
             month=base_date.month,
-            start_date=range_start,
-            end_date=range_end,
+            query_type=query_type,
+            range_start=range_start,
+            range_end=range_end,
         )
-        extra_rows = self._extra_calendar_buttons(context, query_type)
-        if extra_rows:
-            combined_rows = list(markup.inline_keyboard) + extra_rows
-            markup = InlineKeyboardMarkup(combined_rows)
 
         await query.edit_message_text(
             text=Key.manage_event_select_date_prompt.format(label=query_label),
@@ -266,6 +261,14 @@ class ManageEventConversation(ConversationFlow):
 
         initial_query = context.user_data.get("initial_calendar_query")
 
+        if (
+            initial_query == "end"
+            and selected_event
+            and selected_event.start
+            and selected_datetime < selected_event.start
+        ):
+            return await self._handle_end_before_start(update, context, bot_message)
+
         if initial_query == "new":
             selected_event = self.controller.create_new_event(start_datetime=selected_datetime)
         elif initial_query == "start":
@@ -278,6 +281,32 @@ class ManageEventConversation(ConversationFlow):
         context.user_data["selected_event"] = selected_event
 
         return await self.manage_event_main_menu(update, context, bot_message)
+
+    async def _handle_end_before_start(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        bot_message: Message | None,
+    ) -> int:
+        base_date = self._starting_date_for_query(context, "end")
+        range_start, range_end = self._calendar_range_for_query(context, "end")
+        markup = self._build_calendar_markup(
+            context=context,
+            year=base_date.year,
+            month=base_date.month,
+            query_type="end",
+            range_start=range_start,
+            range_end=range_end,
+        )
+
+        if bot_message:
+            await bot_message.edit_text(text=Key.manage_event_end_before_start, reply_markup=markup)
+        else:
+            query = update.callback_query
+            ensured = await self.ensure_message(query)
+            await ensured.edit_text(text=Key.manage_event_end_before_start, reply_markup=markup)
+
+        return SETTING_DATE
 
     async def set_event_title(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         query = update.callback_query
@@ -435,9 +464,31 @@ class ManageEventConversation(ConversationFlow):
             [InlineKeyboardButton(text=Key.manage_event_confirm_changes_button, callback_data="confirm_changes")],
         ]
 
-    @staticmethod
-    def _build_time_keyboard() -> InlineKeyboardMarkup:
+    def _build_time_keyboard(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        query_type: str,
+    ) -> InlineKeyboardMarkup:
         raw_times = ["0800", "0900", "1130", "1300", "1330", "1400", "1500", "1800", "1900", "2200", "2330"]
+        selected_event: Event | None = context.user_data.get("selected_event")
+        selected_date: date | None = context.user_data.get("selected_date")
+
+        if (
+            query_type == "end"
+            and selected_event
+            and selected_event.start
+            and selected_date
+            and selected_date == selected_event.start.date()
+        ):
+            start_time = selected_event.start.time()
+            raw_times = [
+                time_text
+                for time_text in raw_times
+                if self._parse_time(time_text).time() >= start_time
+            ]
+            if not raw_times:
+                raw_times = [selected_event.start.strftime("%H%M")]
+
         rows: List[List[InlineKeyboardButton]] = []
         for i in range(0, len(raw_times), 3):
             chunk = raw_times[i:i + 3]
@@ -446,6 +497,27 @@ class ManageEventConversation(ConversationFlow):
                 row.append(InlineKeyboardButton(text=t, callback_data=t))
             rows.append(row)
         return InlineKeyboardMarkup(rows)
+
+    def _build_calendar_markup(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        year: int,
+        month: int,
+        query_type: Optional[str] = None,
+        range_start: Optional[date] = None,
+        range_end: Optional[date] = None,
+    ) -> InlineKeyboardMarkup:
+        query_type = query_type or context.user_data.get("initial_calendar_query", "start")
+        markup = CalendarKeyboardMarkup.build(
+            year=year,
+            month=month,
+            start_date=range_start,
+            end_date=range_end,
+        )
+        extra_rows = self._extra_calendar_buttons(context, query_type)
+        if extra_rows:
+            markup = InlineKeyboardMarkup(list(markup.inline_keyboard) + extra_rows)
+        return markup
 
     @staticmethod
     def _format_datetime(dt: datetime | None) -> str:
@@ -589,9 +661,10 @@ class ManageEventConversation(ConversationFlow):
         example_time: Optional[str] = None,
     ) -> int:
         example = example_time or datetime.now().strftime("%H%M")
+        query_type = context.user_data.get("initial_calendar_query", "start")
         time_message = await query.edit_message_text(
             text=Key.manage_event_set_time_prompt.format(label=query_label, example_time=example),
-            reply_markup=self._build_time_keyboard(),
+            reply_markup=self._build_time_keyboard(context, query_type),
         )
         context.user_data["time_message"] = time_message
         return SETTING_TIME
