@@ -5,6 +5,7 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandl
 
 from command_handlers.conversations.conversation_flow import ConversationFlow
 from controllers.manage_access_controller import ManageAccessControlling
+from localization import Key
 from models.enums import AccessCategory
 from models.models import User
 
@@ -60,10 +61,10 @@ class ManageAccessConversation(ConversationFlow):
         if update.callback_query:
             query = update.callback_query
             await query.answer()
-            await query.edit_message_text("Select an access category", reply_markup=markup)
+            await query.edit_message_text(Key.manage_access_select_category, reply_markup=markup)
         else:
             message: Message = update.message
-            await message.reply_text("Select an access category", reply_markup=markup)
+            await message.reply_text(Key.manage_access_select_category, reply_markup=markup)
 
         return SHOWING_CATEGORIES
 
@@ -82,10 +83,12 @@ class ManageAccessConversation(ConversationFlow):
             [InlineKeyboardButton(user.name, callback_data=f"user:{user.id}")]
             for user in users
         ]
-        keyboard.append([InlineKeyboardButton("Back", callback_data="back:categories")])
+        keyboard.append(
+            [InlineKeyboardButton(Key.manage_access_back_button, callback_data="back:categories")]
+        )
 
         await query.edit_message_text(
-            text=f"Users in {category.value.title()}",
+            text=Key.manage_access_users_in_category.format(category=category.value.title()),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return SHOWING_USERS
@@ -107,10 +110,12 @@ class ManageAccessConversation(ConversationFlow):
             [InlineKeyboardButton(opt.value.title(), callback_data=f"access:{opt.value}")]
             for opt in options
         ]
-        keyboard.append([InlineKeyboardButton("Back", callback_data="back:users")])
+        keyboard.append(
+            [InlineKeyboardButton(Key.manage_access_back_button, callback_data="back:users")]
+        )
 
         await query.edit_message_text(
-            text=f"Access options for {selected_user.name}",
+            text=Key.manage_access_access_options.format(name=selected_user.name),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return SHOWING_ACCESS_OPTIONS
@@ -125,12 +130,18 @@ class ManageAccessConversation(ConversationFlow):
 
         selected_user: User = context.user_data.get("selected_user")
         keyboard = [
-            [InlineKeyboardButton("Confirm", callback_data="confirm:set_access")],
-            [InlineKeyboardButton("Back", callback_data="back:access")],
+            [
+                InlineKeyboardButton(
+                    Key.manage_access_confirm_button, callback_data="confirm:set_access"
+                )
+            ],
+            [InlineKeyboardButton(Key.manage_access_back_button, callback_data="back:access")],
         ]
 
         await query.edit_message_text(
-            text=f"Set {selected_user.name}'s access to {selected_access.value.title()}?",
+            text=Key.manage_access_set_access_confirmation.format(
+                name=selected_user.name, access=selected_access.value.title()
+            ),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return CONFIRMING_ACCESS
@@ -144,7 +155,9 @@ class ManageAccessConversation(ConversationFlow):
         self.controller.set_access(user, selected_access)
 
         await query.edit_message_text(
-            text=f"Updated {user.name} access to {selected_access.value.title()}.",
+            text=Key.manage_access_access_updated.format(
+                name=user.name, access=selected_access.value.title()
+            ),
         )
         return ConversationHandler.END
 
@@ -158,10 +171,12 @@ class ManageAccessConversation(ConversationFlow):
             [InlineKeyboardButton(opt.value.title(), callback_data=f"access:{opt.value}")]
             for opt in options
         ]
-        keyboard.append([InlineKeyboardButton("Back", callback_data="back:users")])
+        keyboard.append(
+            [InlineKeyboardButton(Key.manage_access_back_button, callback_data="back:users")]
+        )
 
         await query.edit_message_text(
-            text=f"Access options for {selected_user.name}",
+            text=Key.manage_access_access_options.format(name=selected_user.name),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return SHOWING_ACCESS_OPTIONS
@@ -177,10 +192,12 @@ class ManageAccessConversation(ConversationFlow):
             [InlineKeyboardButton(user.name, callback_data=f"user:{user.id}")]
             for user in users
         ]
-        keyboard.append([InlineKeyboardButton("Back", callback_data="back:categories")])
+        keyboard.append(
+            [InlineKeyboardButton(Key.manage_access_back_button, callback_data="back:categories")]
+        )
 
         await query.edit_message_text(
-            text=f"Users in {category.value.title()}",
+            text=Key.manage_access_users_in_category.format(category=category.value.title()),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return SHOWING_USERS

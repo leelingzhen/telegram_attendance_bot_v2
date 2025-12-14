@@ -150,5 +150,13 @@
     "Access: {access}",
     "Accountability: {accountable}",
     "Description: {description}"
-  ]
+  ],
+
+  "manage_access_select_category": "Select an access category",
+  "manage_access_users_in_category": "Users in {category}",
+  "manage_access_back_button": "Back",
+  "manage_access_access_options": "Access options for {name}",
+  "manage_access_confirm_button": "Confirm",
+  "manage_access_set_access_confirmation": "Set {name}'s access to {access}?",
+  "manage_access_access_updated": "Updated {name} access to {access}."
 }
