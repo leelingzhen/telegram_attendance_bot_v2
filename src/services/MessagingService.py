@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from abc import ABC
-from typing import List, Optional, Sequence
+from typing import Awaitable, Callable, List, Optional, Sequence
 
 from telegram import Bot, InlineKeyboardMarkup, MessageEntity
 from telegram.constants import ParseMode
@@ -36,6 +36,7 @@ class MessagingServicing(ABC):
         *,
         parse_mode: Optional[str] = None,
         entities: Optional[Sequence[MessageEntity]] = None,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
     ) -> None:
         """
         Send a message to each user with optional formatting (parse_mode or entities).
@@ -54,7 +55,7 @@ class MessagingService(MessagingServicing):
         logger: Optional[logging.Logger] = None,
         max_retries: int = 2,
         retry_backoff_seconds: float = 1.5,
-        max_concurrent_sends: Optional[int] = None,
+        max_concurrent_sends: Optional[int] = 10,
     ):
         self.bot = Bot(token=token)
         self.logger = logger or logging.getLogger(__name__)
@@ -70,6 +71,7 @@ class MessagingService(MessagingServicing):
         *,
         parse_mode: Optional[str] = None,
         entities: Optional[Sequence[MessageEntity]] = None,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
     ) -> None:
         """
         Attempt to send a message to each user, retrying transient failures.
@@ -97,7 +99,17 @@ class MessagingService(MessagingServicing):
             for user in to_users
         ]
 
-        results = await asyncio.gather(*tasks)
+        total = len(tasks)
+        done = 0
+        results: List[Optional[User]] = []
+
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            results.append(result)
+            done += 1
+            if on_progress:
+                await on_progress(done, total)
+
         failed = [user for user in results if user]
 
         if failed:

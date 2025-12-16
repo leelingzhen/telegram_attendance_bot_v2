@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -24,6 +25,7 @@ from providers.messaging_provider import MessagingProviding
 SELECT_EVENT = 1
 COLLECT_MESSAGE = 2
 CONFIRM_MESSAGE = 3
+logger = logging.getLogger(__name__)
 
 
 class MessagingConversation(ConversationFlow):
@@ -110,14 +112,21 @@ class MessagingConversation(ConversationFlow):
         mode = context.user_data.get("mode")
 
         if mode == "reminders":
-            failed = await self.messaging_provider.send_reminders(selected_event)
+            progress_message = await query.edit_message_text("Sending reminders...")
+            on_progress = self._make_progress_callback(
+                progress_message=progress_message,
+                label="Sending reminders",
+                percent_step=30,
+            )
+
+            failed = await self.messaging_provider.send_reminders(selected_event, on_progress=on_progress)
             if failed:
                 failed_list = self._format_failed_users(failed)
-                await query.edit_message_text(
+                await progress_message.edit_text(
                     f"Reminders sent with failures to: {failed_list}"
                 )
             else:
-                await query.edit_message_text(f"Reminders sent for {selected_event.title}.")
+                await progress_message.edit_text(f"Reminders sent for {selected_event.title}.")
             return ConversationHandler.END
 
         await query.edit_message_text(f"Send the announcement message for {selected_event.title}.")
@@ -164,6 +173,13 @@ class MessagingConversation(ConversationFlow):
         event: Optional[Event] = context.user_data.get("selected_event")
 
         from_user = self._from_handle(update)
+        progress_message = await query.edit_message_text("Sending announcement...")
+        on_progress = self._make_progress_callback(
+            progress_message=progress_message,
+            label="Sending announcement",
+            percent_step=30,
+        )
+
         if mode == "announce_event":
             failed = await self.messaging_provider.send_announcement(
                 from_user,
@@ -171,8 +187,9 @@ class MessagingConversation(ConversationFlow):
                 event,
                 parse_mode=pending_parse_mode,
                 entities=pending_entities,
+                on_progress=on_progress,
             )
-            await query.edit_message_text(
+            await progress_message.edit_text(
                 f"Announcement sent for {event.title}."
                 if not failed
                 else f"Announcement sent with failures to: {self._format_failed_users(failed)}"
@@ -183,8 +200,9 @@ class MessagingConversation(ConversationFlow):
                 pending_text,
                 parse_mode=pending_parse_mode,
                 entities=pending_entities,
+                on_progress=on_progress,
             )
-            await query.edit_message_text(
+            await progress_message.edit_text(
                 "Announcement sent."
                 if not failed
                 else f"Announcement sent with failures to: {self._format_failed_users(failed)}"
@@ -224,3 +242,28 @@ class MessagingConversation(ConversationFlow):
             else:
                 handles.append(str(user.id))
         return ", ".join(handles)
+
+    def _make_progress_callback(
+        self,
+        progress_message,
+        label: str,
+        percent_step: int = 30,
+    ):
+        """
+        Create a throttled progress callback that updates the given message.
+        """
+        last_percent = 0
+
+        async def on_progress(done: int, total: int):
+            nonlocal last_percent
+            percent = int(done * 100 / total) if total else 100
+            if percent - last_percent >= percent_step or done == total:
+                last_percent = percent
+                try:
+                    await progress_message.edit_text(
+                        f"{label}... {done}/{total} complete"
+                    )
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    logger.warning("Progress update failed: %s", exc)
+
+        return on_progress

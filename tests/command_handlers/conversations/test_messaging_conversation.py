@@ -70,7 +70,8 @@ class TestMessagingConversation:
         query = MagicMock(spec=CallbackQuery)
         query.data = "1"
         query.answer = AsyncMock()
-        query.edit_message_text = AsyncMock()
+        progress_message = AsyncMock()
+        query.edit_message_text = AsyncMock(return_value=progress_message)
         update_cb = MagicMock(spec=Update)
         update_cb.callback_query = query
 
@@ -80,10 +81,11 @@ class TestMessagingConversation:
 
         end_state = await self.conversation.event_selected(update_cb, context)
 
-        self.provider.send_reminders.assert_awaited_once_with(events[0])
-        query.edit_message_text.assert_awaited_once()
-        args, kwargs = query.edit_message_text.await_args
-        assert "failed_user" in args[0]
+        args, kwargs = self.provider.send_reminders.await_args
+        assert args[0] == events[0]
+        assert "on_progress" in kwargs
+        progress_message.edit_text.assert_awaited()
+        assert "failed_user" in progress_message.edit_text.await_args.args[0]
         assert end_state == ConversationHandler.END
 
     @pytest.mark.asyncio
@@ -164,7 +166,8 @@ class TestMessagingConversation:
         confirm_query = MagicMock(spec=CallbackQuery)
         confirm_query.data = "confirm"
         confirm_query.answer = AsyncMock()
-        confirm_query.edit_message_text = AsyncMock()
+        progress_message = AsyncMock()
+        confirm_query.edit_message_text = AsyncMock(return_value=progress_message)
         confirm_update = MagicMock(spec=Update)
         confirm_update.callback_query = confirm_query
         confirm_update.effective_user = update.effective_user
@@ -177,6 +180,8 @@ class TestMessagingConversation:
         assert call.args[0] == "mary"
         assert call.args[1] == "Event announcement"
         assert call.args[2] == events[0]
+        assert "on_progress" in call.kwargs
         # ensure failures are mentioned
-        assert "failuser" in confirm_query.edit_message_text.await_args.args[0]
+        progress_message.edit_text.assert_awaited()
+        assert "failuser" in progress_message.edit_text.await_args.args[0]
         assert end_state == ConversationHandler.END

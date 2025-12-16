@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Awaitable, Callable
 
 from models.enums import AccessCategory
 from models.models import User, Event
@@ -15,12 +15,25 @@ class MessagingProviding(ABC):
         pass
 
     @abstractmethod
-    async def send_reminders(self, event: Event) -> List[User]:
+    async def send_reminders(
+        self,
+        event: Event,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> List[User]:
         """Send reminders to users who have not indicated attendance for the given event. Returns users that failed to receive the message."""
         pass
 
     @abstractmethod
-    async def send_announcement(self, from_user: str, message: str, for_event: Optional[Event] = None, *, parse_mode: Optional[str] = None, entities=None) -> List[User]:
+    async def send_announcement(
+        self,
+        from_user: str,
+        message: str,
+        for_event: Optional[Event] = None,
+        *,
+        parse_mode: Optional[str] = None,
+        entities=None,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> List[User]:
         """Broadcast an announcement from the sender; target a specific event if provided, otherwise all users with at least member access. Returns users that failed to receive the message."""
         pass
 
@@ -39,14 +52,27 @@ class MessagingProvider(MessagingProviding):
     async def retrieve_events(self, from_date: datetime) -> List[Event]:
         raise NotImplementedError
 
-    async def send_reminders(self, event: Event) -> List[User]:
+    async def send_reminders(
+        self,
+        event: Event,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> List[User]:
         """
         TODO: first get users who have not indicated for the specified event
         then send a template message to remind the user to indicate attendance
         """
         raise NotImplementedError
 
-    async def send_announcement(self, from_user: str, message: str, for_event: Optional[Event] = None, *, parse_mode: Optional[str] = None, entities=None):
+    async def send_announcement(
+        self,
+        from_user: str,
+        message: str,
+        for_event: Optional[Event] = None,
+        *,
+        parse_mode: Optional[str] = None,
+        entities=None,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ):
         """
         TODO: send announcement to everyone if for_event is empty
         send announcement to everyone who is attending or has not indicated for the specified event
@@ -97,7 +123,11 @@ class FakeMessagingProvider(MessagingProviding):
     async def retrieve_events(self, from_date: datetime) -> List[Event]:
         return self.sample_events
 
-    async def send_reminders(self, event: Event):
+    async def send_reminders(
+        self,
+        event: Event,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ):
         """
         for this fake service, send a reminder message of this template
         Hey you there! YES YOU THERE 🫵🏻 it seems you have not indicated your attendance 🧐 for 05-Oct-25, Sunday (Field Training).
@@ -109,13 +139,26 @@ class FakeMessagingProvider(MessagingProviding):
             f"for {date_str} ({event.title})."
         )
         try:
-            await self.messaging_service.send_messages(to_users=self._test_users, message=message)
+            await self.messaging_service.send_messages(
+                to_users=self._test_users,
+                message=message,
+                on_progress=on_progress,
+            )
             return []
         except MessageSendError as exc:
             return exc.failed_users
 
 
-    async def send_announcement(self, from_user: str, message: str, for_event: Optional[Event] = None, *, parse_mode: Optional[str] = None, entities=None) -> List[User]:
+    async def send_announcement(
+        self,
+        from_user: str,
+        message: str,
+        for_event: Optional[Event] = None,
+        *,
+        parse_mode: Optional[str] = None,
+        entities=None,
+        on_progress: Optional[Callable[[int, int], Awaitable[None]]] = None,
+    ) -> List[User]:
         """
         for here i want to put the telegram user's at the end of the message as sort of like a sign off, just a simple -@telegram_user will do
         after that, if for_event is not optional, i want add a Message for Field Training on 22-Jun, Sun @ 11:00AM at the end of the message in italics
@@ -150,6 +193,7 @@ class FakeMessagingProvider(MessagingProviding):
                 message=body,
                 parse_mode=parse_mode,
                 entities=base_entities or None,
+                on_progress=on_progress,
             )
             return []
         except MessageSendError as exc:

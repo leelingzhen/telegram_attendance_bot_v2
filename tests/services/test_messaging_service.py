@@ -11,6 +11,7 @@ from telegram.error import (
 )
 
 from models.models import User
+from providers.messaging_provider import FakeMessagingProvider
 from services.MessagingService import MessageSendError, MessagingService
 from utils.markup_converter import MessageMarkupConverter
 
@@ -140,6 +141,54 @@ async def test_send_messages_runs_concurrently():
     await service.send_messages(users, "hello")
 
     assert max_active > 1
+
+
+@pytest.mark.asyncio
+async def test_send_messages_reports_progress(monkeypatch):
+    users = [User(id=1, name="A"), User(id=2, name="B"), User(id=3, name="C")]
+    service = MessagingService("token", max_concurrent_sends=3)
+
+    # Stagger completions to ensure progress follows completion order.
+    async def send_message(self, chat_id: int, message: str, reply_markup=None, parse_mode=None, entities=None):
+        await asyncio.sleep(0.01 * chat_id)
+        return "ok"
+
+    service.bot = type("Bot", (), {"send_message": send_message})()
+
+    progress_updates: list[tuple[int, int]] = []
+
+    async def on_progress(done: int, total: int):
+        progress_updates.append((done, total))
+
+    await service.send_messages(users, "hello", on_progress=on_progress)
+
+    assert progress_updates[-1] == (3, 3)
+    # Ensure progress increments, even if order of completions varies.
+    assert all(update[0] == idx + 1 for idx, update in enumerate(progress_updates))
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_passes_progress_callback(monkeypatch):
+    service = MessagingService("token", max_concurrent_sends=5)
+
+    async def send_message(self, chat_id: int, message: str, reply_markup=None, parse_mode=None, entities=None):
+        await asyncio.sleep(0.001)
+        return "ok"
+
+    service.bot = type("Bot", (), {"send_message": send_message})()
+
+    provider = FakeMessagingProvider(service)
+    provider._test_users = [User(id=1, name="A"), User(id=2, name="B"), User(id=3, name="C")]
+
+    updates: list[tuple[int, int]] = []
+
+    async def on_progress(done: int, total: int):
+        updates.append((done, total))
+
+    failed = await provider.send_announcement("alice", "hi", on_progress=on_progress)
+
+    assert failed == []
+    assert updates[-1] == (3, 3)
 
 
 def test_html_to_entities_and_back():
