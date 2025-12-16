@@ -19,6 +19,7 @@ from telegram.ext import (
 from telegram.constants import ParseMode
 
 from command_handlers.conversations.conversation_flow import ConversationFlow
+from localization import Key
 from models.models import Event, User
 from providers.messaging_provider import MessagingProviding
 
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 class MessagingConversation(ConversationFlow):
     """
     Conversation flows for messaging-related commands:
-      - /send_reminders: choose an event then send reminders
+      - /remind: choose an event then send reminders
       - /announce: collect a message and send to all
       - /announce_event: choose an event, collect a message, then send
     """
@@ -43,7 +44,7 @@ class MessagingConversation(ConversationFlow):
     def conversation_handler(self) -> ConversationHandler:
         return ConversationHandler(
             entry_points=[
-                CommandHandler("send_reminders", self.start_send_reminders),
+                CommandHandler("remind", self.start_send_reminders),
                 CommandHandler("announce", self.start_announce),
                 CommandHandler("announce_event", self.start_announce_event),
             ],
@@ -71,7 +72,7 @@ class MessagingConversation(ConversationFlow):
 
     async def start_announce(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         context.user_data["mode"] = "announce"
-        await update.message.reply_text("Send the announcement message.")
+        await update.message.reply_text(Key.messaging_announce_prompt)
         return COLLECT_MESSAGE
 
     async def _prompt_event_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -79,7 +80,7 @@ class MessagingConversation(ConversationFlow):
         context.user_data["events"] = events
 
         if not events:
-            await update.message.reply_text("No upcoming events found.")
+            await update.message.reply_text(Key.no_upcoming_events_found)
             return ConversationHandler.END
 
         keyboard = [
@@ -92,7 +93,7 @@ class MessagingConversation(ConversationFlow):
             for event in events
         ]
         await update.message.reply_text(
-            "Choose an event:",
+            Key.choose_event_message,
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return SELECT_EVENT
@@ -112,10 +113,10 @@ class MessagingConversation(ConversationFlow):
         mode = context.user_data.get("mode")
 
         if mode == "reminders":
-            progress_message = await query.edit_message_text("Sending reminders...")
+            progress_message = await query.edit_message_text(Key.messaging_sending_reminders)
             on_progress = self._make_progress_callback(
                 progress_message=progress_message,
-                label="Sending reminders",
+                label=Key.messaging_sending_reminders,
                 percent_step=30,
             )
 
@@ -123,13 +124,17 @@ class MessagingConversation(ConversationFlow):
             if failed:
                 failed_list = self._format_failed_users(failed)
                 await progress_message.edit_text(
-                    f"Reminders sent with failures to: {failed_list}"
+                    Key.messaging_reminders_failed.format(failed_list=failed_list)
                 )
             else:
-                await progress_message.edit_text(f"Reminders sent for {selected_event.title}.")
+                await progress_message.edit_text(
+                    Key.messaging_reminders_sent.format(event_title=selected_event.title)
+                )
             return ConversationHandler.END
 
-        await query.edit_message_text(f"Send the announcement message for {selected_event.title}.")
+        await query.edit_message_text(
+            Key.messaging_announce_event_prompt.format(event_title=selected_event.title)
+        )
         return COLLECT_MESSAGE
 
     async def message_collected(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -160,11 +165,11 @@ class MessagingConversation(ConversationFlow):
         action = query.data
 
         if action == "cancel":
-            await query.edit_message_text("Cancelled.")
+            await query.edit_message_text(Key.operation_cancelled)
             return ConversationHandler.END
 
         if action == "edit":
-            await query.edit_message_text("Send the updated message.")
+            await query.edit_message_text(Key.messaging_edit_prompt)
             return COLLECT_MESSAGE
 
         pending_message: Tuple[str, Optional[str], Optional[Tuple]] = context.user_data.get("pending_message", ("", None, None))
@@ -173,10 +178,10 @@ class MessagingConversation(ConversationFlow):
         event: Optional[Event] = context.user_data.get("selected_event")
 
         from_user = self._from_handle(update)
-        progress_message = await query.edit_message_text("Sending announcement...")
+        progress_message = await query.edit_message_text(Key.messaging_sending_announcement)
         on_progress = self._make_progress_callback(
             progress_message=progress_message,
-            label="Sending announcement",
+            label=Key.messaging_sending_announcement,
             percent_step=30,
         )
 
@@ -190,9 +195,11 @@ class MessagingConversation(ConversationFlow):
                 on_progress=on_progress,
             )
             await progress_message.edit_text(
-                f"Announcement sent for {event.title}."
+                Key.messaging_announcement_sent_for_event.format(event_title=event.title)
                 if not failed
-                else f"Announcement sent with failures to: {self._format_failed_users(failed)}"
+                else Key.messaging_announcement_failed.format(
+                    failed_list=self._format_failed_users(failed)
+                )
             )
         else:
             failed = await self.messaging_provider.send_announcement(
@@ -203,9 +210,11 @@ class MessagingConversation(ConversationFlow):
                 on_progress=on_progress,
             )
             await progress_message.edit_text(
-                "Announcement sent."
+                Key.messaging_announcement_sent
                 if not failed
-                else f"Announcement sent with failures to: {self._format_failed_users(failed)}"
+                else Key.messaging_announcement_failed.format(
+                    failed_list=self._format_failed_users(failed)
+                )
             )
 
         return ConversationHandler.END

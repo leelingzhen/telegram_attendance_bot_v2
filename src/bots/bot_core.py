@@ -47,7 +47,7 @@ class BotCore:
             BotCommand("kaypoh", "[Member] Your friend never go u dw go is it??"),
             BotCommand("register", "[Public] register your details"),
             BotCommand("manage_event", "[Core] add or update an existing event"),
-            BotCommand("send_reminders", "[Core] send reminders for an event"),
+            BotCommand("remind", "[Core] send reminders for an event"),
             BotCommand("announce", "[Core] broadcast an announcement"),
             BotCommand("announce_event", "[Core] broadcast an announcement for an event"),
             BotCommand("manage_access", "[Admin] manage who can access this bot"),
