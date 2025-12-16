@@ -1,19 +1,21 @@
 from bots.bot_core import BotCore
-from command_handlers.conversations.get_team_attendance_conversation import GetTeamAttendanceConversation
-from command_handlers.conversations.manage_event_conversation import ManageEventConversation
-from command_handlers.conversations.manage_access_conversation import ManageAccessConversation
-from command_handlers.start_handler import StartHandler
-from command_handlers.cancel_handler import CancelHandler
-from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
-from command_handlers.conversations.registration_conversation import RegistrationConversation
-from controllers.attendance_controller import FakeAttendanceController
-from controllers.manage_event_controller import FakeManageEventController
-from controllers.registration_controller import FakeRegistrationController
-from controllers.manage_access_controller import FakeManageAccessController
-
 import logging
 
+from command_handlers.cancel_handler import CancelHandler
+from command_handlers.conversations.attendance_conversation import MarkAttendanceConversation
+from command_handlers.conversations.get_team_attendance_conversation import GetTeamAttendanceConversation
+from command_handlers.conversations.manage_access_conversation import ManageAccessConversation
+from command_handlers.conversations.manage_event_conversation import ManageEventConversation
+from command_handlers.conversations.messaging_conversation import MessagingConversation
+from command_handlers.conversations.registration_conversation import RegistrationConversation
+from command_handlers.start_handler import StartHandler
+from controllers.attendance_controller import FakeAttendanceController
+from controllers.manage_access_controller import FakeManageAccessController
+from controllers.manage_event_controller import FakeManageEventController
+from controllers.registration_controller import FakeRegistrationController
 from controllers.team_attendance_controller import FakeTeamAttendanceController
+from providers.messaging_provider import FakeMessagingProvider
+from services.MessagingService import MessagingService
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class TrainingBot:
         logger.info("Initializing training bot...")
         # Initialize core bot with just the token
         self.core = BotCore(token=token)
+        self.token = token
         self._setup_command_handlers()
         logger.info("Training bot initialized")
     
@@ -59,12 +62,17 @@ class TrainingBot:
         registration_conversation = RegistrationConversation(controller=FakeRegistrationController())
         manage_event_conversation = ManageEventConversation(controller=FakeManageEventController())
         manage_access_conversation = ManageAccessConversation(controller=FakeManageAccessController())
+        messaging_service = MessagingService(token=self.token)
+        messaging_conversation = MessagingConversation(
+            messaging_provider=FakeMessagingProvider(messaging_service=messaging_service)
+        )
 
         self.core.application.add_handler(attendance_conv.conversation_handler)
         self.core.application.add_handler(team_attendance_conversation.conversation_handler)
         self.core.application.add_handler(registration_conversation.conversation_handler)
         self.core.application.add_handler(manage_event_conversation.conversation_handler)
         self.core.application.add_handler(manage_access_conversation.conversation_handler)
+        self.core.application.add_handler(messaging_conversation.conversation_handler)
 
     def run(self):
         """Run the bot"""

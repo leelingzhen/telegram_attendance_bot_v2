@@ -67,6 +67,17 @@
     "Gender: {gender}"
   ],
 
+  "messaging_announce_prompt": "Send the announcement message.",
+  "messaging_announce_event_prompt": "Send the announcement message for {event_title}.",
+  "messaging_sending_reminders": "Sending reminders...",
+  "messaging_reminders_sent": "Reminders sent for {event_title}.",
+  "messaging_reminders_failed": "Reminders sent with failures to: {failed_list}",
+  "messaging_edit_prompt": "Send the updated message.",
+  "messaging_sending_announcement": "Sending announcement...",
+  "messaging_announcement_sent": "Announcement sent.",
+  "messaging_announcement_sent_for_event": "Announcement sent for {event_title}.",
+  "messaging_announcement_failed": "Announcement sent with failures to: {failed_list}",
+
   "manage_event_choose_event": "Select an event to manage or create a new one.",
   "manage_event_no_events": "No upcoming events found. Create a new one to get started.",
   "manage_event_create_button": "Create new event",
